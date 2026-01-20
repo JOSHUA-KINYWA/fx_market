@@ -190,8 +190,8 @@ export function TradeNotes({ trade }: TradeNotesProps) {
     }
   };
 
-  const isWin = trade.profit_loss && trade.profit_loss > 0;
-  const isLoss = trade.profit_loss && trade.profit_loss < 0;
+  const isWin = !!(trade.profit_loss && trade.profit_loss > 0);
+  const isLoss = !!(trade.profit_loss && trade.profit_loss < 0);
 
   return (
     <div className="bg-white shadow rounded-lg p-6 space-y-6">

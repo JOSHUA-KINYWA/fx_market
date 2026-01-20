@@ -8,8 +8,18 @@ type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 type Strategy = Database["public"]["Tables"]["strategies"]["Row"];
 type Setup = Database["public"]["Tables"]["trade_setups"]["Row"];
 
+// Extend the base Trade row type with optional analytics fields that are
+// calculated/augmented in the app layer but not present in the generated
+// Database types.
+type AnalyticTrade = Trade & {
+  risk_percentage?: number | null;
+  discipline_score?: number | null;
+  risk_management_score?: number | null;
+  has_missing_details?: boolean | null;
+};
+
 interface TradeDetailProps {
-  readonly trade: Trade;
+  readonly trade: AnalyticTrade;
   readonly account: Account | null;
   readonly strategy: Strategy | null;
   readonly setup: Setup | null;

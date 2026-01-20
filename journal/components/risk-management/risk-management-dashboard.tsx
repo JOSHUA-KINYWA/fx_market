@@ -7,8 +7,17 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 
+// Extend the base Trade row type with optional analytics fields that are
+// calculated/augmented in the app layer but not present in the generated
+// Database types.
+type AnalyticTrade = Trade & {
+  risk_percentage?: number | null;
+  discipline_score?: number | null;
+  risk_management_score?: number | null;
+};
+
 interface RiskManagementDashboardProps {
-  readonly trades: Trade[];
+  readonly trades: AnalyticTrade[];
   readonly accounts: Account[];
 }
 
@@ -327,7 +336,9 @@ export function RiskManagementDashboard({ trades, accounts }: RiskManagementDash
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) =>
+                    `${name}: ${percent ? (percent * 100).toFixed(0) : "0"}%`
+                  }
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="count"

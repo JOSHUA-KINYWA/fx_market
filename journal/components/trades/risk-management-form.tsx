@@ -8,8 +8,17 @@ import { Database } from "@/types/database.types";
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 
+// Extend the base Trade row type with optional analytics fields that are
+// calculated/augmented in the app layer but not present in the generated
+// Database types.
+type AnalyticTrade = Trade & {
+  risk_percentage?: number | null;
+  discipline_score?: number | null;
+  risk_management_score?: number | null;
+};
+
 interface RiskManagementFormProps {
-  readonly trade: Trade;
+  readonly trade: AnalyticTrade;
   readonly account: Account | null;
 }
 
@@ -103,7 +112,7 @@ export function RiskManagementForm({ trade, account }: RiskManagementFormProps) 
             className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             placeholder="e.g., 2.0"
           />
-          {account && riskPercentage && (
+          {account && account.current_balance !== null && riskPercentage && (
             <p className="mt-1 text-xs text-slate-500">
               Risk Amount: ${(
                 (Number.parseFloat(riskPercentage) / 100) *

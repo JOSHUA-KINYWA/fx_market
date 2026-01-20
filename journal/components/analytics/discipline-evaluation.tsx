@@ -2,12 +2,23 @@
 
 import { Database } from "@/types/database.types";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { format, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
+import { format, startOfWeek } from "date-fns";
 
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 
+// Extend the base Trade row type with optional analytics fields that are
+// calculated/augmented in the app layer but not present in the generated
+// Database types. This keeps type-safety for core fields while allowing the
+// extra properties used in this component.
+type AnalyticTrade = Trade & {
+  discipline_score?: number | null;
+  risk_management_score?: number | null;
+  has_missing_details?: boolean | null;
+  risk_percentage?: number | null;
+};
+
 interface DisciplineEvaluationProps {
-  readonly trades: Trade[];
+  readonly trades: AnalyticTrade[];
 }
 
 export function DisciplineEvaluation({ trades }: DisciplineEvaluationProps) {

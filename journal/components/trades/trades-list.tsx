@@ -7,8 +7,15 @@ import { format } from "date-fns";
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 
+// Extend the base Trade row type with optional analytics fields that are
+// calculated/augmented in the app layer but not present in the generated
+// Database types.
+type AnalyticTrade = Trade & {
+  has_missing_details?: boolean | null;
+};
+
 interface TradesListProps {
-  trades: Trade[];
+  trades: AnalyticTrade[];
   accounts: Account[];
 }
 
