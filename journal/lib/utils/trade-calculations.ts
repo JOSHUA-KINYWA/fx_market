@@ -116,7 +116,11 @@ export async function updateAccountBalance(
     .eq("account_id", accountId)
     .eq("status", "closed");
 
-  const totalPnL = allTrades?.reduce((sum, t) => sum + (t.profit_loss || 0), 0) || 0;
+  const totalPnL =
+    allTrades?.reduce(
+      (sum: number, t: { profit_loss: number | null }) => sum + (t.profit_loss ?? 0),
+      0
+    ) ?? 0;
   const newBalance = (account.initial_balance || 0) + totalPnL;
 
   // Update account balance
