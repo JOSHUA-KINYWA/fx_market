@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppLayout } from "@/components/layout/app-layout";
 import { CSVImportForm } from "@/components/import/csv-import-form";
+import { DuplicateCleaner } from "@/components/import/duplicate-cleaner";
 
 export default async function ImportPage() {
   const supabase = await createClient();
@@ -29,7 +30,10 @@ export default async function ImportPage() {
           </p>
         </div>
 
-        <CSVImportForm accounts={accounts || []} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <CSVImportForm accounts={accounts || []} />
+          <DuplicateCleaner accounts={accounts || []} />
+        </div>
       </div>
     </AppLayout>
   );

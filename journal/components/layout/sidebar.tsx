@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useLoading } from "@/lib/loading-context";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
@@ -21,13 +22,26 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { startLoading, stopLoading } = useLoading();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
+  const handleNavigation = (href: string) => {
+    startLoading();
+    setIsMobileOpen(false);
+    setTimeout(() => {
+      router.push(href);
+      setTimeout(() => stopLoading(), 300);
+    }, 200);
+  };
+
   const handleSignOut = async () => {
+    startLoading();
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    setTimeout(() => {
+      router.push("/login");
+      router.refresh();
+    }, 300);
   };
 
   return (
@@ -84,11 +98,10 @@ export function Sidebar() {
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
-                <Link
+                <button
                   key={item.href}
-                  href={item.href}
-                  onClick={() => setIsMobileOpen(false)}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-all ${
+                  onClick={() => handleNavigation(item.href)}
+                  className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-all ${
                     isActive
                       ? "bg-blue-600 text-white shadow-md"
                       : "text-slate-300 hover:bg-slate-700 hover:text-white"
@@ -96,7 +109,7 @@ export function Sidebar() {
                 >
                   <span className="mr-3 text-lg">{item.icon}</span>
                   <span className="font-medium">{item.label}</span>
-                </Link>
+                </button>
               );
             })}
           </nav>

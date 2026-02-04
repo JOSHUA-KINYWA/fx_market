@@ -22,6 +22,8 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
   const [success, setSuccess] = useState("");
   const [preview, setPreview] = useState<any[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, stage: "" });
+  const [duplicateStats, setDuplicateStats] = useState({ total: 0, byTicket: 0, byProfile: 0, byPositionSize: 0 });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -219,45 +221,82 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
           // Check for existing trades and remove duplicates BEFORE importing
           const { data: existingTrades } = await supabase
             .from("trades")
-            .select("ticket_id, entry_time, currency_pair, entry_price, exit_time, exit_price")
+            .select("id, ticket_id, entry_time, currency_pair, entry_price, exit_time, exit_price, position_size, status")
             .eq("user_id", user.id)
             .eq("account_id", accountId);
 
-          // Filter out duplicates
+          console.log(`Found ${existingTrades?.length || 0} existing trades to check against`);
+
+          // Filter out duplicates - STRICT checking to prevent re-imports
+          let duplicatesByTicket = 0;
+          let duplicatesByProfile = 0;
+          
           const newTrades = mappedTrades.filter((newTrade: any) => {
             if (!existingTrades || existingTrades.length === 0) return true;
             
-            // Check by ticket_id first (most reliable)
-            if (newTrade.ticket_id) {
-              const existsByTicket = existingTrades.some(
-                (existing) => existing.ticket_id === newTrade.ticket_id
+            // 1. Check by ticket_id first (most reliable for MT4/MT5)
+            if (newTrade.ticket_id && String(newTrade.ticket_id).trim() !== "") {
+              const ticketMatch = existingTrades.find(
+                (existing) => existing.ticket_id && String(existing.ticket_id).trim() === String(newTrade.ticket_id).trim()
               );
-              if (existsByTicket) return false;
-            }
-            
-            // Check by entry_time + currency_pair + entry_price + exit_time/exit_price
-            const existsByMatch = existingTrades.some((existing) => {
-              const sameEntry = 
-                existing.entry_time === newTrade.entry_time &&
-                existing.currency_pair === newTrade.currency_pair &&
-                Math.abs((existing.entry_price || 0) - (newTrade.entry_price || 0)) < 0.00001;
-            
-              // If both have exits, also check exit time/price
-              if (newTrade.exit_time && existing.exit_time) {
-                return sameEntry &&
-                  existing.exit_time === newTrade.exit_time &&
-                  Math.abs((existing.exit_price || 0) - (newTrade.exit_price || 0)) < 0.00001;
-              }
-              
-              // If new trade has exit but existing doesn't, or vice versa, it's different
-              if ((newTrade.exit_time && !existing.exit_time) || (!newTrade.exit_time && existing.exit_time)) {
+              if (ticketMatch) {
+                console.log(`Duplicate by ticket: ${newTrade.ticket_id}`);
+                duplicatesByTicket++;
                 return false;
               }
+            }
+            
+            // 2. Match by entry_time + currency_pair + entry_price + status
+            // This handles trades with the same entry point
+            const profileMatch = existingTrades.find((existing) => {
+              // Parse dates to compare just the date part (remove milliseconds/timezone differences)
+              const newEntryDate = newTrade.entry_time ? new Date(newTrade.entry_time).toISOString().split('T')[0] : null;
+              const existingEntryDate = existing.entry_time ? new Date(existing.entry_time).toISOString().split('T')[0] : null;
               
-              return sameEntry;
+              const sameDay = newEntryDate === existingEntryDate;
+              const samePair = existing.currency_pair === newTrade.currency_pair;
+              const sameEntryPrice = Math.abs((existing.entry_price || 0) - (newTrade.entry_price || 0)) < 0.00001;
+              
+              if (!sameDay || !samePair || !sameEntryPrice) return false;
+              
+              // Same entry point - now check exit data
+              const newHasExit = newTrade.exit_time || newTrade.exit_price;
+              const existingHasExit = existing.exit_time || existing.exit_price;
+              
+              // Both closed - compare exit details
+              if (newHasExit && existingHasExit) {
+                const sameExitPrice = Math.abs((existing.exit_price || 0) - (newTrade.exit_price || 0)) < 0.00001;
+                const sameExitDate = existing.exit_time && newTrade.exit_time
+                  ? new Date(existing.exit_time).toISOString().split('T')[0] === new Date(newTrade.exit_time).toISOString().split('T')[0]
+                  : existing.exit_time === newTrade.exit_time;
+                
+                return sameExitDate && sameExitPrice;
+              }
+              
+              // Both open - compare position size
+              if (!newHasExit && !existingHasExit) {
+                const sameSize = Math.abs((existing.position_size || 0) - (newTrade.position_size || 0)) < 0.0001;
+                return sameSize;
+              }
+              
+              // One open, one closed = different trades
+              return false;
             });
             
-            return !existsByMatch;
+            if (profileMatch) {
+              console.log(`Duplicate by profile: ${newTrade.currency_pair} @ ${newTrade.entry_price}`);
+              duplicatesByProfile++;
+              return false;
+            }
+            
+            return true;
+          });
+
+          setDuplicateStats({
+            total: mappedTrades.length - newTrades.length,
+            byTicket: duplicatesByTicket,
+            byProfile: duplicatesByProfile,
+            byPositionSize: 0,
           });
 
           if (newTrades.length === 0) {
@@ -313,14 +352,28 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
           // Insert trades in batches
           for (let i = 0; i < tradesWithMetrics.length; i += 100) {
             const batch = tradesWithMetrics.slice(i, i + 100);
+            const batchNum = Math.floor(i / 100) + 1;
+            const totalBatches = Math.ceil(tradesWithMetrics.length / 100);
+            
+            setImportProgress({
+              current: i,
+              total: tradesWithMetrics.length,
+              stage: `Importing batch ${batchNum}/${totalBatches}...`,
+            });
+
             const { error: insertError } = await supabase.from("trades").insert(batch);
 
             if (insertError) {
               console.error("Insert error:", insertError);
-              errors.push(`Batch ${Math.floor(i / 100) + 1}: ${insertError.message}`);
+              errors.push(`Batch ${batchNum}: ${insertError.message}`);
               skipped += batch.length;
             } else {
               imported += batch.length;
+              setImportProgress({
+                current: Math.min(i + 100, tradesWithMetrics.length),
+                total: tradesWithMetrics.length,
+                stage: `Batch ${batchNum}/${totalBatches} completed`,
+              });
             }
           }
 
@@ -345,14 +398,22 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
 
           setLoading(false);
           if (imported > 0) {
-            const message = duplicatesSkipped > 0
-              ? `Successfully imported ${imported} trade${imported !== 1 ? "s" : ""}! ${duplicatesSkipped} duplicate${duplicatesSkipped !== 1 ? "s" : ""} automatically removed.`
-              : `Successfully imported ${imported} trade${imported !== 1 ? "s" : ""}!`;
+            let message = `Successfully imported ${imported} trade${imported !== 1 ? "s" : ""}!`;
+            
+            if (duplicateStats.total > 0) {
+              const duplicateDetails = [];
+              if (duplicateStats.byTicket > 0) duplicateDetails.push(`${duplicateStats.byTicket} by ticket ID`);
+              if (duplicateStats.byProfile > 0) duplicateDetails.push(`${duplicateStats.byProfile} by entry/exit profile`);
+              if (duplicateStats.byPositionSize > 0) duplicateDetails.push(`${duplicateStats.byPositionSize} by position size`);
+              
+              message += ` ${duplicateStats.total} duplicate${duplicateStats.total !== 1 ? "s" : ""} automatically removed (${duplicateDetails.join(", ")}).`;
+            }
+            
             setSuccess(message);
             setTimeout(() => {
               router.push("/trades");
               router.refresh();
-            }, 2000);
+            }, 3000);
           } else {
             setError(`Import failed. ${errors.length > 0 ? errors.join("; ") : "No trades were imported."}`);
           }
@@ -382,6 +443,27 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
         </div>
       )}
 
+      {/* Import Progress Preloader */}
+      {loading && importProgress.total > 0 && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-blue-900">Importing Trades...</h3>
+            <span className="text-sm text-blue-700 font-medium">
+              {importProgress.current} / {importProgress.total}
+            </span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2.5 overflow-hidden">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+              style={{
+                width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%`,
+              }}
+            ></div>
+          </div>
+          <p className="text-xs text-blue-700 mt-2">{importProgress.stage}</p>
+        </div>
+      )}
+
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -391,7 +473,8 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
             required
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            className="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            disabled={loading}
+            className="block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
           >
             <option value="">Select account</option>
             {accounts.map((account) => (
@@ -410,7 +493,8 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
             type="file"
             accept=".csv"
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            disabled={loading}
+            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <p className="mt-1 text-xs text-slate-500">
             Supported formats: MT4, MT5, cTrader
@@ -423,7 +507,16 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
               Preview
             </Button>
             <Button type="button" onClick={handleImport} disabled={loading}>
-              {loading ? "Importing..." : "Import Trades"}
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+                  </svg>
+                  Importing...
+                </span>
+              ) : (
+                "Import Trades"
+              )}
             </Button>
           </div>
         )}
