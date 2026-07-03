@@ -16,24 +16,19 @@ export default function ResetPasswordPage() {
   const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
-    // Check if Supabase has recovered a session from the reset link
-    const checkSession = async () => {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      
+    const supabase = createClient();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         setSessionReady(true);
       } else {
-        // If no session after a moment, it likely means the hash was invalid or expired
         setError("Invalid or expired reset link. Please request a new password reset.");
       }
-    };
+    });
 
-    // Small delay to allow Supabase to parse the hash
-    const timer = setTimeout(checkSession, 500);
-    return () => clearTimeout(timer);
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
