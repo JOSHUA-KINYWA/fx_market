@@ -5,7 +5,11 @@ import { RiskManagementDashboard } from "@/components/risk-management/risk-manag
 import { serializeArray } from "@/lib/utils/serialize";
 import { calculateTradeMetrics } from "@/lib/utils/trade-calculations";
 
-export default async function RiskManagementPage() {
+export default async function RiskManagementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ account?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,6 +26,8 @@ export default async function RiskManagementPage() {
     .eq("is_active", true);
 
   const accountIds = accounts?.map((a) => a.id) || [];
+  const resolvedSearchParams = await searchParams;
+  const selectedAccountId = resolvedSearchParams?.account || accounts?.[0]?.id || "";
 
   const { data: trades } = await supabase
     .from("trades")
@@ -87,7 +93,7 @@ export default async function RiskManagementPage() {
           </p>
         </div>
 
-        <RiskManagementDashboard trades={tradesData} accounts={accountsData} />
+        <RiskManagementDashboard trades={tradesData} accounts={accountsData} defaultAccountId={selectedAccountId} />
       </div>
     </AppLayout>
   );

@@ -13,6 +13,12 @@ export default async function NewStrategyPage() {
     redirect("/login");
   }
 
+  const { data: accounts } = await supabase
+    .from("trading_accounts")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
   return (
     <AppLayout>
       <div className="px-4 py-6 sm:px-0">
@@ -23,7 +29,7 @@ export default async function NewStrategyPage() {
           </p>
         </div>
 
-        <StrategyForm />
+        <StrategyForm accounts={accounts || []} />
       </div>
     </AppLayout>
   );

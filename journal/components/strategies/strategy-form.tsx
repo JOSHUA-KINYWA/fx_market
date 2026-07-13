@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Database } from "@/types/database.types";
+
+type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 
 interface StrategyFormProps {
   strategyId?: string;
@@ -11,10 +14,12 @@ interface StrategyFormProps {
     name: string;
     description: string | null;
     is_active: boolean;
+    account_id?: string | null;
   };
+  accounts?: Account[];
 }
 
-export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
+export function StrategyForm({ strategyId, initialData, accounts = [] }: StrategyFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -23,6 +28,7 @@ export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
     name: initialData?.name || "",
     description: initialData?.description || "",
     is_active: initialData?.is_active ?? true,
+    account_id: initialData?.account_id || accounts[0]?.id || "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +55,7 @@ export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
             name: formData.name,
             description: formData.description || null,
             is_active: formData.is_active,
+            account_id: formData.account_id || null,
           })
           .eq("id", strategyId)
           .eq("user_id", user.id);
@@ -57,6 +64,7 @@ export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
       } else {
         const { error: insertError } = await supabase.from("strategies").insert({
           user_id: user.id,
+          account_id: formData.account_id || null,
           name: formData.name,
           description: formData.description || null,
           is_active: formData.is_active,
@@ -67,8 +75,12 @@ export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
 
       router.push("/strategies");
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "Failed to save strategy");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to save strategy");
+      } else {
+        setError("Failed to save strategy");
+      }
     } finally {
       setLoading(false);
     }
@@ -81,6 +93,30 @@ export function StrategyForm({ strategyId, initialData }: StrategyFormProps) {
           {error}
         </div>
       )}
+
+      <div>
+        <label htmlFor="account_id" className="block text-sm font-medium text-gray-700 mb-2">
+          Trading Account
+        </label>
+        <select
+          id="account_id"
+          value={formData.account_id}
+          onChange={(e) =>
+            setFormData({ ...formData, account_id: e.target.value })
+          }
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">None (Global)</option>
+          {accounts.map((account) => (
+            <option key={account.id} value={account.id}>
+              {account.account_name} {account.account_number ? `(${account.account_number})` : ""}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          Leave unassigned to make this strategy available across all accounts.
+        </p>
+      </div>
 
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">

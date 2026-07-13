@@ -18,15 +18,42 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const supabase = createClient();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        setSessionReady(true);
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session) {
+          setError("");
+          setSessionReady(true);
+        }
+      }
+    );
+
+    const init = async () => {
+      const hash = window.location.hash;
+      if (hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.substring(1));
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+
+        if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+
+          if (error) {
+            setError("Invalid or expired reset link. Please request a new password reset.");
+          }
+          return;
+        }
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
         setError("Invalid or expired reset link. Please request a new password reset.");
       }
-    });
+    };
+
+    init();
 
     return () => subscription.unsubscribe();
   }, []);

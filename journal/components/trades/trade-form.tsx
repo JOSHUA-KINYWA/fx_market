@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -32,12 +32,6 @@ export function TradeForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Find ICT SILVER BULLET STRATEGY
-  const ictStrategy = strategies.find(
-    (s) => s.name.toLowerCase().includes("ict silver bullet") || s.name.toLowerCase().includes("silver bullet")
-  );
-
-  // Parse SET IS FVG from market_conditions
   const parseSetIsFvg = (marketConditions: string | null): string => {
     if (!marketConditions) return "";
     if (marketConditions.includes("CHOCH")) return "CHOCH";
@@ -61,12 +55,47 @@ export function TradeForm({
       : "",
     exit_price: initialData?.exit_price?.toString() || "",
     profit_loss: initialData?.profit_loss?.toString() || "",
-    strategy_id: initialData?.strategy_id || ictStrategy?.id || "",
+    strategy_id: initialData?.strategy_id || "",
     setup_id: initialData?.setup_id || "",
     set_is_fvg: initialData?.market_conditions ? parseSetIsFvg(initialData.market_conditions) : "",
     notes: initialData?.notes || "",
     status: initialData?.status || "open",
   });
+
+  const selectedAccountId = formData.account_id;
+
+  const accountStrategies: Strategy[] = strategies.filter(
+    (s) => !s.account_id || s.account_id === selectedAccountId
+  );
+
+  const ictStrategy = accountStrategies.find(
+    (s) => s.name.toLowerCase().includes("ict silver bullet") || s.name.toLowerCase().includes("silver bullet")
+  );
+
+  useEffect(() => {
+    if (!formData.strategy_id && ictStrategy) {
+      setFormData((prev) => ({ ...prev, strategy_id: ictStrategy.id }));
+    }
+  }, [formData.account_id, ictStrategy]);
+
+  // Reset strategy/setup when account changes to avoid cross-account selections
+  useEffect(() => {
+    const currentAccountId = formData.account_id;
+    const strategyStillValid = !formData.strategy_id || strategies.some(
+      (s) => s.id === formData.strategy_id && (!s.account_id || s.account_id === currentAccountId)
+    );
+    const setupStillValid = !formData.setup_id || setups.some(
+      (s) => s.id === formData.setup_id && (!s.account_id || s.account_id === currentAccountId)
+    );
+
+    if (!strategyStillValid || !setupStillValid) {
+      setFormData((prev) => ({
+        ...prev,
+        strategy_id: strategyStillValid ? prev.strategy_id : "",
+        setup_id: setupStillValid ? prev.setup_id : "",
+      }));
+    }
+  }, [formData.account_id, strategies, setups]);
 
 
   // Validate session-based trading rules
@@ -466,7 +495,7 @@ export function TradeForm({
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">None</option>
-            {strategies.map((strategy) => (
+            {accountStrategies.map((strategy) => (
               <option key={strategy.id} value={strategy.id}>
                 {strategy.name}
               </option>
@@ -486,11 +515,13 @@ export function TradeForm({
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">None</option>
-            {setups.map((setup) => (
-              <option key={setup.id} value={setup.id}>
-                {setup.name}
-              </option>
-            ))}
+            {setups
+              .filter((s) => !s.account_id || s.account_id === selectedAccountId)
+              .map((setup) => (
+                <option key={setup.id} value={setup.id}>
+                  {setup.name}
+                </option>
+              ))}
           </select>
         </div>
 

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AppLayout } from "@/components/layout/app-layout";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { TagsManagement } from "@/components/settings/tags-management";
+import { PasswordForm } from "@/components/settings/password-form";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
 
         <div className="space-y-6">
           <SettingsForm profile={profile} />
+          <PasswordForm />
           <TagsManagement />
         </div>
       </div>

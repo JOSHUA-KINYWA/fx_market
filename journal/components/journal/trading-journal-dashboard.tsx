@@ -40,8 +40,8 @@ export function TradingJournalDashboard({
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(activeAccount || null);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>(trades);
   const [accountSettings, setAccountSettings] = useState<AccountSettings>({
-    startingCapital: activeAccount?.initial_balance || 10000,
-    currentCapital: activeAccount?.current_balance || 10000,
+    startingCapital: 0,
+    currentCapital: 0,
     riskPerTrade: 2,
     maxDailyLoss: 100,
     leverage: 50,
@@ -86,7 +86,7 @@ export function TradingJournalDashboard({
 
   useEffect(() => {
     loadSettings();
-  }, []);
+  }, [selectedAccountId]);
 
   useEffect(() => {
     if (filteredTrades.length > 0) {
@@ -133,34 +133,49 @@ export function TradingJournalDashboard({
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // If error is not "not found" type, log it
       if (error && error.code !== "PGRST116") {
         console.error("Failed to load settings:", error.message || error);
       }
 
-      if (data?.preferences) {
-        const prefs = data.preferences as Record<string, any>;
-        if (prefs.accountSettings) {
-          setAccountSettings({
-            ...accountSettings,
-            ...prefs.accountSettings,
-            startingCapital: activeAccount?.initial_balance || prefs.accountSettings.startingCapital || 10000,
-            currentCapital: activeAccount?.current_balance || prefs.accountSettings.currentCapital || 10000,
-          });
+      const prefs = (data?.preferences || {}) as Record<string, unknown>;
+      const accountSettingsById = (prefs.accountSettingsById || {}) as Record<string, AccountSettings>;
+      const settingsKey = selectedAccountId || "global";
+      const loadedSettings = (accountSettingsById[settingsKey] || {}) as Partial<AccountSettings>;
+
+      // Backwards compatibility: migrate old accountSettings format
+      if (!Object.keys(loadedSettings).length && prefs.accountSettings) {
+        const oldSettings = prefs.accountSettings as Partial<AccountSettings>;
+        // Auto-migrate to per-account structure
+        const { data: existingPrefs } = await supabase
+          .from("user_settings")
+          .select("preferences")
+          .eq("user_id", user.id)
+          .single();
+
+        if (existingPrefs) {
+          const existingPrefsTyped = existingPrefs as Record<string, unknown>;
+          const existingById = (existingPrefsTyped.accountSettingsById || {}) as Record<string, AccountSettings>;
+          existingById[settingsKey] = oldSettings as AccountSettings;
+          await supabase
+            .from("user_settings")
+            .update({
+              preferences: {
+                ...existingPrefsTyped,
+                accountSettingsById: existingById,
+              },
+            })
+            .eq("user_id", user.id);
         }
-      } else {
-        // Initialize with defaults - don't auto-save to avoid infinite loop
-        const defaultSettings = {
-          ...accountSettings,
-          startingCapital: activeAccount?.initial_balance || 10000,
-          currentCapital: activeAccount?.current_balance || 10000,
-        };
-        setAccountSettings(defaultSettings);
-        // Only save if user explicitly sets settings
       }
-    } catch (error: any) {
-      // Silently fail for settings - they're optional
-      console.error("Failed to load settings:", error?.message || error);
+
+      setAccountSettings({
+        ...accountSettings,
+        ...loadedSettings,
+        startingCapital: selectedAccount?.initial_balance ?? loadedSettings.startingCapital ?? 0,
+        currentCapital: selectedAccount?.current_balance ?? loadedSettings.currentCapital ?? 0,
+      });
+    } catch (error: unknown) {
+      console.error("Failed to load settings:", error instanceof Error ? error.message : error);
     }
   };
 
@@ -171,42 +186,43 @@ export function TradingJournalDashboard({
       } = await supabase.auth.getUser();
       if (!user) return false;
 
-      // Check if settings exist first
+      const settingsKey = selectedAccountId || "global";
+
       const { data: existing } = await supabase
         .from("user_settings")
-        .select("id")
+        .select("id, preferences")
         .eq("user_id", user.id)
         .single();
 
+      const currentPrefs = (existing?.preferences || {}) as Record<string, unknown>;
+      const accountSettingsById = (currentPrefs.accountSettingsById || {}) as Record<string, AccountSettings>;
+      accountSettingsById[settingsKey] = settings;
+
       const settingsData = {
         user_id: user.id,
-        preferences: { accountSettings: settings },
+        preferences: {
+          ...currentPrefs,
+          accountSettingsById,
+        },
         updated_at: new Date().toISOString(),
       };
 
-      let error;
-      if (existing) {
-        // Update existing record
-        const result = await supabase
-          .from("user_settings")
-          .update(settingsData)
-          .eq("user_id", user.id);
-        error = result.error;
-      } else {
-        // Insert new record
-        const result = await supabase
-          .from("user_settings")
-          .insert(settingsData);
-        error = result.error;
-      }
+      const { error } = existing
+        ? await supabase
+            .from("user_settings")
+            .update(settingsData)
+            .eq("user_id", user.id)
+        : await supabase
+            .from("user_settings")
+            .insert(settingsData);
 
       if (error) {
         console.error("Failed to save settings:", error.message || error);
         return false;
       }
       return true;
-    } catch (error: any) {
-      console.error("Failed to save settings:", error?.message || error);
+    } catch (error: unknown) {
+      console.error("Failed to save settings:", error instanceof Error ? error.message : error);
       return false;
     }
   };
@@ -366,9 +382,6 @@ export function TradingJournalDashboard({
     dailyAvg,
   };
 
-  const accountName = activeAccount?.account_name || "Default Account";
-  const accountNumber = activeAccount?.account_number || "";
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
       <div className="max-w-7xl mx-auto">
@@ -418,22 +431,40 @@ export function TradingJournalDashboard({
           </div>
 
           {/* Account Selector */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Select Account
-            </label>
-            <select
-              value={selectedAccountId || ""}
-              onChange={(e) => setSelectedAccountId(e.target.value || null)}
-              className="w-full md:w-auto px-4 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Accounts</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.account_name} {account.account_number ? `(${account.account_number})` : ""}
-                </option>
-              ))}
-            </select>
+          <div className="mb-4 flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Select Account
+              </label>
+              <select
+                value={selectedAccountId || ""}
+                onChange={(e) => setSelectedAccountId(e.target.value || null)}
+                className="w-full md:w-auto px-4 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Accounts</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.account_name} {account.account_number ? `(${account.account_number})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedAccountId && (
+              <div className="flex gap-2">
+                <Link
+                  href={`/accounts/${selectedAccountId}/edit`}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Edit Account
+                </Link>
+                <button
+                  onClick={() => setShowSettings(true)}
+                  className="inline-flex items-center px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition"
+                >
+                  Adjust Account Settings
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 mb-4">
@@ -772,7 +803,7 @@ export function TradingJournalDashboard({
                   Math.abs(todayPnL) > accountSettings.dailyLossTarget * 0.7 && (
                     <div className="mt-4 bg-red-900/30 border border-red-700 rounded-lg p-3">
                       <p className="text-red-300 text-sm font-semibold">
-                        ⚠️ Warning: You've used{" "}
+                        ⚠️ Warning: You&apos;ve used{" "}
                         {((Math.abs(todayPnL) / accountSettings.dailyLossTarget) * 100).toFixed(1)}%
                         of your daily loss limit. Consider stopping for today.
                       </p>

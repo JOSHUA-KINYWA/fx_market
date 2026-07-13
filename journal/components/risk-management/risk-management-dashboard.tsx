@@ -19,12 +19,13 @@ type AnalyticTrade = Trade & {
 interface RiskManagementDashboardProps {
   readonly trades: AnalyticTrade[];
   readonly accounts: Account[];
+  readonly defaultAccountId?: string;
 }
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
-export function RiskManagementDashboard({ trades, accounts }: RiskManagementDashboardProps) {
-  const [selectedAccount, setSelectedAccount] = useState<string>("");
+export function RiskManagementDashboard({ trades, accounts, defaultAccountId = "" }: RiskManagementDashboardProps) {
+  const [selectedAccount, setSelectedAccount] = useState<string>(defaultAccountId);
 
   const closedTrades = trades.filter((t) => t.status === "closed");
   const filteredTrades = selectedAccount

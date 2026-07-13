@@ -70,7 +70,7 @@ export default function RegisterPage() {
     }
 
     const supabase = createClient();
-    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -78,7 +78,7 @@ export default function RegisterPage() {
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: `${origin}/auth/callback`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 

@@ -6,8 +6,9 @@ import { StrategyForm } from "@/components/strategies/strategy-form";
 export default async function EditStrategyPage({
   params,
 }: {
-  params: { id: string };
+  readonly params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -20,13 +21,19 @@ export default async function EditStrategyPage({
   const { data: strategy } = await supabase
     .from("strategies")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("user_id", user.id)
     .single();
 
   if (!strategy) {
     redirect("/strategies");
   }
+
+  const { data: accounts } = await supabase
+    .from("trading_accounts")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("is_active", true);
 
   return (
     <AppLayout>
@@ -39,11 +46,13 @@ export default async function EditStrategyPage({
         </div>
 
         <StrategyForm
-          strategyId={params.id}
+          strategyId={id}
+          accounts={accounts || []}
           initialData={{
             name: strategy.name,
             description: strategy.description,
             is_active: strategy.is_active,
+            account_id: strategy.account_id || undefined,
           }}
         />
       </div>

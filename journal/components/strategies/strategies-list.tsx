@@ -30,6 +30,9 @@ export function StrategiesList({ strategies }: StrategiesListProps) {
                   Description
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Account
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Timeframes
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -51,6 +54,9 @@ export function StrategiesList({ strategies }: StrategiesListProps) {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {strategy.description || "-"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {strategy.account_id ? "Account-Specific" : "Global"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {strategy.timeframes?.join(", ") || "-"}

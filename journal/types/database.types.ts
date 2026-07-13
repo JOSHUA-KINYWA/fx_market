@@ -179,6 +179,7 @@ export type Database = {
       }
       strategies: {
         Row: {
+          account_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -190,6 +191,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -201,6 +203,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -217,6 +220,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategies_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -365,6 +375,7 @@ export type Database = {
       }
       trade_setups: {
         Row: {
+          account_id: string | null
           created_at: string | null
           description: string | null
           id: string
@@ -375,6 +386,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -385,6 +397,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_id?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
@@ -407,6 +420,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trade_setups_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
             referencedColumns: ["id"]
           },
         ]
