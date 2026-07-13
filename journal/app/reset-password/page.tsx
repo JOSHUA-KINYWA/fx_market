@@ -29,7 +29,17 @@ export default function ResetPasswordPage() {
 
     const init = async () => {
       const hash = window.location.hash;
-      if (hash.includes("access_token")) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const code = searchParams.get("code");
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+          setError("Invalid or expired reset link. Please request a new password reset.");
+          return;
+        }
+      } else if (hash.includes("access_token")) {
         const params = new URLSearchParams(hash.substring(1));
         const access_token = params.get("access_token");
         const refresh_token = params.get("refresh_token");
@@ -42,13 +52,16 @@ export default function ResetPasswordPage() {
 
           if (error) {
             setError("Invalid or expired reset link. Please request a new password reset.");
+            return;
           }
-          return;
         }
       }
 
       const { data } = await supabase.auth.getSession();
-      if (!data.session) {
+      if (data.session) {
+        setError("");
+        setSessionReady(true);
+      } else {
         setError("Invalid or expired reset link. Please request a new password reset.");
       }
     };

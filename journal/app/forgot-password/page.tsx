@@ -5,6 +5,20 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
+function getAppUrl() {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+
+  return "http://localhost:3000";
+}
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -17,9 +31,11 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+    const appUrl = getAppUrl();
+    const redirectTo = `${appUrl}/auth/callback?next=${encodeURIComponent("/reset-password")}`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appUrl}/reset-password`,
+      redirectTo,
     });
 
     if (error) {
