@@ -45,24 +45,13 @@ export function RiskManagementForm({ trade, account }: RiskManagementFormProps) 
       setRiskAmount(calculated.toFixed(2));
     }
 
-    // Calculate R-multiple if we have stop loss and take profit
-    if (trade.stop_loss && trade.take_profit && trade.entry_price) {
-      const entry = Number.parseFloat(trade.entry_price.toString());
-      const sl = Number.parseFloat(trade.stop_loss.toString());
-      const tp = Number.parseFloat(trade.take_profit.toString());
-      
-      if (trade.direction === "buy") {
-        const risk = entry - sl;
-        const reward = tp - entry;
-        if (risk > 0) {
-          setRMultiple((reward / risk).toFixed(2));
-        }
-      } else {
-        const risk = sl - entry;
-        const reward = entry - tp;
-        if (risk > 0) {
-          setRMultiple((reward / risk).toFixed(2));
-        }
+    // Calculate R-multiple from dollar risk and reward amounts
+    if (trade.stop_loss && trade.take_profit) {
+      const riskAmount = Number.parseFloat(trade.stop_loss.toString());
+      const rewardAmount = Number.parseFloat(trade.take_profit.toString());
+
+      if (riskAmount > 0) {
+        setRMultiple((rewardAmount / riskAmount).toFixed(2));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +140,7 @@ export function RiskManagementForm({ trade, account }: RiskManagementFormProps) 
             readOnly
           />
           <p className="mt-1 text-xs text-slate-500">
-            Calculated from Stop Loss and Take Profit
+            Calculated from Stop Loss Amount and Take Profit Amount
           </p>
         </div>
 

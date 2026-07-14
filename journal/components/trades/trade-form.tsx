@@ -46,14 +46,12 @@ export function TradeForm({
     entry_time: initialData?.entry_time
       ? new Date(initialData.entry_time).toISOString().slice(0, 16)
       : new Date().toISOString().slice(0, 16),
-    entry_price: initialData?.entry_price?.toString() || "",
     position_size: initialData?.position_size?.toString() || "",
     stop_loss: initialData?.stop_loss?.toString() || "",
     take_profit: initialData?.take_profit?.toString() || "",
     exit_time: initialData?.exit_time
       ? new Date(initialData.exit_time).toISOString().slice(0, 16)
       : "",
-    exit_price: initialData?.exit_price?.toString() || "",
     profit_loss: initialData?.profit_loss?.toString() || "",
     strategy_id: initialData?.strategy_id || "",
     setup_id: initialData?.setup_id || "",
@@ -98,59 +96,21 @@ export function TradeForm({
   }, [formData.account_id, strategies, setups]);
 
 
-  // Validate session-based trading rules
-  const validateSessionRules = (entryTime: string, direction: string, stopLoss: string, takeProfit: string, entryPrice: string) => {
-    const entryDate = new Date(entryTime);
-    const entryHour = entryDate.getUTCHours(); // Using UTC for NY session
-    const nyHour = (entryHour - 5 + 24) % 24; // Convert UTC to NY time (UTC-5)
-
-    // 10-11 AM NY Session: No sell setups allowed (only bullish)
-    if (nyHour >= 10 && nyHour < 11 && direction === "sell") {
-      return "⚠️ Session Rule: No sell setups allowed during 10-11 AM NY session. Only bullish (buy) setups allowed.";
+  // Basic trade validation
+  const validateSessionRules = (_entryTime: string, _direction: string, stopLoss: string, takeProfit: string) => {
+    if (!stopLoss || !takeProfit) {
+      return null;
     }
 
-    // 2-3 PM NY Session: Only sell setups allowed (14-15 in 24hr format)
-    if (direction === "sell" && (nyHour < 14 || nyHour >= 15)) {
-      return "⚠️ Session Rule: Sell setups only allowed during 2-3 PM (14:00-15:00) NY session.";
+    const riskAmount = Number.parseFloat(stopLoss);
+    const rewardAmount = Number.parseFloat(takeProfit);
+
+    if (!Number.isFinite(riskAmount) || riskAmount <= 0) {
+      return "Invalid stop loss amount. Risk must be positive.";
     }
 
-    if (!stopLoss || !takeProfit || !entryPrice) {
-      return null; // Skip R:R validation if SL/TP not set
-    }
-
-    const entry = Number.parseFloat(entryPrice);
-    const sl = Number.parseFloat(stopLoss);
-    const tp = Number.parseFloat(takeProfit);
-
-    let risk: number;
-    let reward: number;
-
-    if (direction === "buy") {
-      risk = entry - sl;
-      reward = tp - entry;
-    } else {
-      risk = sl - entry;
-      reward = entry - tp;
-    }
-
-    if (risk <= 0) {
-      return "Invalid stop loss. Risk must be positive.";
-    }
-
-    const riskRewardRatio = reward / risk;
-
-    // 10-13 NY Session: Risk 1:3 (minimum 150 pips reward for 45 pips risk)
-    if (nyHour >= 10 && nyHour < 13) {
-      if (riskRewardRatio < 3) {
-        return `⚠️ Session Rule: 10-13 NY session requires minimum 1:3 R:R (150 pips reward for 45 pips risk). Current: ${riskRewardRatio.toFixed(2)}:1`;
-      }
-    }
-
-    // 2-3 PM NY Session: Risk 1:2 (50-100 pips reward for 45 pips risk)
-    if (nyHour >= 14 && nyHour < 15) {
-      if (riskRewardRatio < 2) {
-        return `⚠️ Session Rule: 2-3 PM (14:00-15:00) NY session requires minimum 1:2 R:R (50-100 pips reward for 45 pips risk). Current: ${riskRewardRatio.toFixed(2)}:1`;
-      }
+    if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) {
+      return "Invalid take profit amount. Reward must be positive.";
     }
 
     return null;
@@ -177,8 +137,7 @@ export function TradeForm({
       formData.entry_time,
       formData.direction,
       formData.stop_loss,
-      formData.take_profit,
-      formData.entry_price
+      formData.take_profit
     );
 
     if (sessionError) {
@@ -196,8 +155,8 @@ export function TradeForm({
 
     // Calculate ALL metrics dynamically
     const metrics = calculateTradeMetrics({
-      entry_price: Number.parseFloat(formData.entry_price),
-      exit_price: formData.exit_price ? Number.parseFloat(formData.exit_price) : null,
+      entry_price: null,
+      exit_price: null,
       stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
       take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
       direction: formData.direction,
@@ -214,12 +173,12 @@ export function TradeForm({
       currency_pair: formData.currency_pair.toUpperCase(),
       direction: formData.direction,
       entry_time: new Date(formData.entry_time).toISOString(),
-      entry_price: Number.parseFloat(formData.entry_price),
+      entry_price: initialData?.entry_price ?? 0,
+      exit_price: initialData?.exit_price ?? null,
       position_size: Number.parseFloat(formData.position_size),
       stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
       take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
       exit_time: formData.exit_time ? new Date(formData.exit_time).toISOString() : null,
-      exit_price: formData.exit_price ? Number.parseFloat(formData.exit_price) : null,
       profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
       strategy_id: formData.strategy_id || null,
       setup_id: formData.setup_id || null,
@@ -379,22 +338,6 @@ export function TradeForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Entry Price *
-          </label>
-          <input
-            type="number"
-            step="0.00001"
-            required
-            value={formData.entry_price}
-            onChange={(e) =>
-              setFormData({ ...formData, entry_price: e.target.value })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
             Position Size (Lots) *
           </label>
           <input
@@ -411,32 +354,38 @@ export function TradeForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Stop Loss
+            Stop Loss Amount ($)
           </label>
           <input
             type="number"
-            step="0.00001"
+            step="0.01"
+            min="0"
             value={formData.stop_loss}
             onChange={(e) =>
               setFormData({ ...formData, stop_loss: e.target.value })
             }
+            placeholder="e.g. 100"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
+          <p className="mt-1 text-xs text-gray-500">Enter the dollar amount you risk.</p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Take Profit
+            Take Profit Amount ($)
           </label>
           <input
             type="number"
-            step="0.00001"
+            step="0.01"
+            min="0"
             value={formData.take_profit}
             onChange={(e) =>
               setFormData({ ...formData, take_profit: e.target.value })
             }
+            placeholder="e.g. 300"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />
+          <p className="mt-1 text-xs text-gray-500">Enter the dollar target amount.</p>
         </div>
 
         <div>
@@ -448,21 +397,6 @@ export function TradeForm({
             value={formData.exit_time}
             onChange={(e) =>
               setFormData({ ...formData, exit_time: e.target.value })
-            }
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Exit Price
-          </label>
-          <input
-            type="number"
-            step="0.00001"
-            value={formData.exit_price}
-            onChange={(e) =>
-              setFormData({ ...formData, exit_price: e.target.value })
             }
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           />

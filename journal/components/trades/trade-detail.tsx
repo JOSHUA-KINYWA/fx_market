@@ -129,14 +129,14 @@ export function TradeDetail({
           </div>
           {trade.stop_loss && (
             <div>
-              <label className="block text-sm font-medium text-slate-500">Stop Loss</label>
-              <p className="mt-1 text-slate-900">{Number(trade.stop_loss).toFixed(5)}</p>
+              <label className="block text-sm font-medium text-slate-500">Stop Loss Amount</label>
+              <p className="mt-1 text-slate-900">${Number(trade.stop_loss).toFixed(2)}</p>
             </div>
           )}
           {trade.take_profit && (
             <div>
-              <label className="block text-sm font-medium text-slate-500">Take Profit</label>
-              <p className="mt-1 text-slate-900">{Number(trade.take_profit).toFixed(5)}</p>
+              <label className="block text-sm font-medium text-slate-500">Take Profit Amount</label>
+              <p className="mt-1 text-slate-900">${Number(trade.take_profit).toFixed(2)}</p>
             </div>
           )}
         </div>

@@ -8,7 +8,7 @@ export interface TradeMetrics {
 }
 
 export function calculateTradeMetrics(trade: {
-  entry_price: number;
+  entry_price: number | null;
   exit_price: number | null;
   stop_loss: number | null;
   take_profit: number | null;
@@ -27,7 +27,7 @@ export function calculateTradeMetrics(trade: {
   };
 
   // Calculate pips if we have entry and exit prices
-  if (trade.entry_price && trade.exit_price && trade.currency_pair) {
+  if (trade.entry_price !== null && trade.entry_price !== undefined && trade.exit_price !== null && trade.exit_price !== undefined && trade.currency_pair) {
     const pair = trade.currency_pair.toUpperCase();
     const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
     
@@ -38,33 +38,19 @@ export function calculateTradeMetrics(trade: {
     }
   }
 
-  // Calculate risk_reward_ratio and r_multiple if we have SL and TP
-  if (trade.stop_loss && trade.take_profit && trade.entry_price) {
-    const entry = Number.parseFloat(trade.entry_price.toString());
-    const sl = Number.parseFloat(trade.stop_loss.toString());
-    const tp = Number.parseFloat(trade.take_profit.toString());
-    
-    let risk: number;
-    let reward: number;
-    
-    if (trade.direction === "buy") {
-      risk = entry - sl;
-      reward = tp - entry;
-    } else {
-      risk = sl - entry;
-      reward = entry - tp;
-    }
-    
-    if (risk > 0) {
-      metrics.risk_reward_ratio = reward / risk;
-      
-      // R-multiple: if trade is closed with actual P&L, use actual vs risk
+  // Calculate risk_reward_ratio and r_multiple if we have SL and TP dollar amounts
+  if (trade.stop_loss && trade.take_profit) {
+    const riskAmount = Number.parseFloat(trade.stop_loss.toString());
+    const rewardAmount = Number.parseFloat(trade.take_profit.toString());
+
+    if (riskAmount > 0) {
+      metrics.risk_reward_ratio = rewardAmount / riskAmount;
+
+      // R-multiple: if trade is closed with actual P&L, use actual vs risk amount
       // Otherwise, use planned R:R
       if (trade.exit_price && trade.exit_time && trade.profit_loss !== null && trade.profit_loss !== undefined) {
-        const actualRisk = Math.abs(risk) * trade.position_size;
-        if (actualRisk > 0) {
-          // R-multiple = actual profit / risk per unit
-          metrics.r_multiple = trade.profit_loss / actualRisk;
+        if (riskAmount > 0) {
+          metrics.r_multiple = trade.profit_loss / riskAmount;
         } else {
           metrics.r_multiple = metrics.risk_reward_ratio;
         }
@@ -76,20 +62,11 @@ export function calculateTradeMetrics(trade: {
   }
 
   // Calculate risk_amount (dollar amount at risk)
-  if (trade.stop_loss && trade.entry_price) {
-    const entry = Number.parseFloat(trade.entry_price.toString());
-    const sl = Number.parseFloat(trade.stop_loss.toString());
-    
-    let riskPerUnit: number;
-    if (trade.direction === "buy") {
-      riskPerUnit = entry - sl;
-    } else {
-      riskPerUnit = sl - entry;
-    }
-    
-    if (riskPerUnit > 0) {
-      const totalRisk = riskPerUnit * trade.position_size;
-      metrics.risk_amount = totalRisk;
+  if (trade.stop_loss) {
+    const riskAmount = Number.parseFloat(trade.stop_loss.toString());
+
+    if (riskAmount > 0) {
+      metrics.risk_amount = riskAmount;
     }
   }
 
