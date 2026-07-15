@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { LoadingProvider } from "@/lib/loading-context";
 import { PagePreloader } from "@/components/layout/page-preloader";
+import { NotificationProvider } from "@/components/ui/notification-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,8 +21,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <LoadingProvider>
-          <PagePreloader />
-          {children}
+          <NotificationProvider>
+            <PagePreloader />
+            {children}
+          </NotificationProvider>
         </LoadingProvider>
       </body>
     </html>

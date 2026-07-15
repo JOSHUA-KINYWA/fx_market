@@ -43,7 +43,24 @@ export function TradesList({ trades, accounts }: TradesListProps) {
 
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
+      {trades.length === 0 ? (
+        <div className="p-12 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+            📈
+          </div>
+          <h3 className="mt-4 text-lg font-semibold text-gray-900">No trades recorded yet</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            Add your first trade to start building your journal and tracking your performance.
+          </p>
+          <Link
+            href="/trades/new"
+            className="mt-5 inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Record a trade
+          </Link>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -80,25 +97,7 @@ export function TradesList({ trades, accounts }: TradesListProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {trades.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="px-6 py-12 text-center">
-                  <div className="text-gray-500">
-                    <p className="text-lg font-medium mb-2">No trades yet</p>
-                    <p className="text-sm mb-4">
-                      Start tracking your trades by adding your first one
-                    </p>
-                    <Link
-                      href="/trades/new"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                    >
-                      Add Trade
-                    </Link>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              trades.map((trade) => (
+            {trades.map((trade) => (
                 <tr key={trade.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {format(new Date(trade.entry_time), "MMM dd, yyyy")}
@@ -166,11 +165,11 @@ export function TradesList({ trades, accounts }: TradesListProps) {
                     </Link>
                   </td>
                 </tr>
-              ))
-            )}
+              ))}
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

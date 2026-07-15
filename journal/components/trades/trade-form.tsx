@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Database } from "@/types/database.types";
 import { TradingPsychologyQuotes } from "./trading-psychology-quotes";
 import { calculateTradeMetrics, updateAccountBalance } from "@/lib/utils/trade-calculations";
+import { getFriendlyErrorMessage, validateTradeForm } from "@/lib/utils/trade-form-validation";
 
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 type Strategy = Database["public"]["Tables"]["strategies"]["Row"];
@@ -97,140 +98,114 @@ export function TradeForm({
 
 
   // Basic trade validation
-  const validateSessionRules = (_entryTime: string, _direction: string, stopLoss: string, takeProfit: string) => {
-    if (!stopLoss || !takeProfit) {
-      return null;
-    }
-
-    const riskAmount = Number.parseFloat(stopLoss);
-    const rewardAmount = Number.parseFloat(takeProfit);
-
-    if (!Number.isFinite(riskAmount) || riskAmount <= 0) {
-      return "Invalid stop loss amount. Risk must be positive.";
-    }
-
-    if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) {
-      return "Invalid take profit amount. Reward must be positive.";
-    }
-
-    return null;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setError("You must be logged in");
-      setLoading(false);
-      return;
-    }
+      if (userError || !user) {
+        throw new Error("Your session is no longer valid. Please sign in again.");
+      }
 
-    // Validate session rules
-    const sessionError = validateSessionRules(
-      formData.entry_time,
-      formData.direction,
-      formData.stop_loss,
-      formData.take_profit
-    );
+      const validation = validateTradeForm({
+        account_id: formData.account_id,
+        currency_pair: formData.currency_pair,
+        position_size: formData.position_size,
+        stop_loss: formData.stop_loss,
+        take_profit: formData.take_profit,
+        entry_time: formData.entry_time,
+      });
 
-    if (sessionError) {
-      setError(sessionError);
-      setLoading(false);
-      return;
-    }
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
 
-    // Get account balance for risk calculations
-    const { data: account } = await supabase
-      .from("trading_accounts")
-      .select("current_balance")
-      .eq("id", formData.account_id)
-      .single();
-
-    // Calculate ALL metrics dynamically
-    const metrics = calculateTradeMetrics({
-      entry_price: null,
-      exit_price: null,
-      stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
-      take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
-      direction: formData.direction,
-      currency_pair: formData.currency_pair.toUpperCase(),
-      position_size: Number.parseFloat(formData.position_size),
-      profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
-      exit_time: formData.exit_time || null,
-      current_balance: account?.current_balance || null,
-    });
-
-    const tradeData = {
-      user_id: user.id,
-      account_id: formData.account_id,
-      currency_pair: formData.currency_pair.toUpperCase(),
-      direction: formData.direction,
-      entry_time: new Date(formData.entry_time).toISOString(),
-      entry_price: initialData?.entry_price ?? 0,
-      exit_price: initialData?.exit_price ?? null,
-      position_size: Number.parseFloat(formData.position_size),
-      stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
-      take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
-      exit_time: formData.exit_time ? new Date(formData.exit_time).toISOString() : null,
-      profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
-      strategy_id: formData.strategy_id || null,
-      setup_id: formData.setup_id || null,
-      market_conditions: formData.set_is_fvg ? `FVG: ${formData.set_is_fvg}` : null,
-      notes: formData.notes || null,
-      status: formData.status,
-      // Add all calculated metrics - these will update dynamically
-      pips: metrics.pips,
-      risk_reward_ratio: metrics.risk_reward_ratio,
-      r_multiple: metrics.r_multiple,
-      risk_amount: metrics.risk_amount,
-    };
-
-    if (tradeId) {
-      // Get old trade to track account changes
-      const { data: oldTrade } = await supabase
-        .from("trades")
-        .select("profit_loss, status, account_id")
-        .eq("id", tradeId)
+      const { data: account, error: accountError } = await supabase
+        .from("trading_accounts")
+        .select("current_balance")
+        .eq("id", formData.account_id)
         .single();
 
-      const { error } = await supabase
-        .from("trades")
-        .update(tradeData)
-        .eq("id", tradeId);
+      if (accountError) {
+        throw accountError;
+      }
 
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-      } else {
-        // Always update account balance after trade update (in case status changed or P&L changed)
+      const metrics = calculateTradeMetrics({
+        entry_price: null,
+        exit_price: null,
+        stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
+        take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
+        direction: formData.direction,
+        currency_pair: formData.currency_pair.toUpperCase(),
+        position_size: Number.parseFloat(formData.position_size),
+        profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
+        exit_time: formData.exit_time || null,
+        current_balance: account?.current_balance || null,
+      });
+
+      const tradeData = {
+        user_id: user.id,
+        account_id: formData.account_id,
+        currency_pair: formData.currency_pair.toUpperCase(),
+        direction: formData.direction,
+        entry_time: new Date(formData.entry_time).toISOString(),
+        entry_price: initialData?.entry_price ?? 0,
+        exit_price: initialData?.exit_price ?? null,
+        position_size: Number.parseFloat(formData.position_size),
+        stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
+        take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
+        exit_time: formData.exit_time ? new Date(formData.exit_time).toISOString() : null,
+        profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
+        strategy_id: formData.strategy_id || null,
+        setup_id: formData.setup_id || null,
+        market_conditions: formData.set_is_fvg ? `FVG: ${formData.set_is_fvg}` : null,
+        notes: formData.notes || null,
+        status: formData.status,
+        pips: metrics.pips,
+        risk_reward_ratio: metrics.risk_reward_ratio,
+        r_multiple: metrics.r_multiple,
+        risk_amount: metrics.risk_amount,
+      };
+
+      if (tradeId) {
+        const { error } = await supabase
+          .from("trades")
+          .update(tradeData)
+          .eq("id", tradeId);
+
+        if (error) {
+          throw error;
+        }
+
         if (formData.account_id) {
           await updateAccountBalance(supabase, formData.account_id);
         }
         router.push(`/trades/${tradeId}`);
         router.refresh();
-      }
-    } else {
-      const { error } = await supabase.from("trades").insert(tradeData);
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
       } else {
-        // Update account balance if trade is closed
+        const { error } = await supabase.from("trades").insert(tradeData);
+
+        if (error) {
+          throw error;
+        }
+
         if (formData.account_id) {
           await updateAccountBalance(supabase, formData.account_id);
         }
-        // Redirect to dashboard and force refresh
         router.push("/dashboard");
         setTimeout(() => router.refresh(), 200);
       }
+    } catch (err) {
+      setError(getFriendlyErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
   };
 
