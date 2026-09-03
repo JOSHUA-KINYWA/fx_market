@@ -270,17 +270,19 @@ export function TradeForm({
           <label className="block text-sm font-medium text-gray-700">
             Currency Pair *
           </label>
-          <input
-            type="text"
+          <select
             required
             value={formData.currency_pair}
             onChange={(e) =>
               setFormData({ ...formData, currency_pair: e.target.value.toUpperCase() })
             }
-            placeholder="US30 or NAS100"
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-          <p className="mt-1 text-xs text-gray-500">Recommended: US30 or NAS100</p>
+          >
+            <option value="">Select a pair</option>
+            <option value="US500">US500</option>
+            <option value="NAS100">NAS100</option>
+            <option value="XAUUSD">XAUUSD</option>
+          </select>
         </div>
 
         <div>
