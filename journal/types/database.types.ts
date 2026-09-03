@@ -446,6 +446,7 @@ export type Database = {
           id: string
           lessons_learned: string | null
           market_conditions: string | null
+          ny_session: string | null
           notes: string | null
           pips: number | null
           position_size: number
@@ -460,6 +461,7 @@ export type Database = {
           strategy_id: string | null
           take_profit: number | null
           ticket_id: string | null
+          timeframe: string | null
           updated_at: string | null
           user_id: string
         }
@@ -477,6 +479,7 @@ export type Database = {
           id?: string
           lessons_learned?: string | null
           market_conditions?: string | null
+          ny_session?: string | null
           notes?: string | null
           pips?: number | null
           position_size: number
@@ -491,6 +494,7 @@ export type Database = {
           strategy_id?: string | null
           take_profit?: number | null
           ticket_id?: string | null
+          timeframe?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -508,6 +512,7 @@ export type Database = {
           id?: string
           lessons_learned?: string | null
           market_conditions?: string | null
+          ny_session?: string | null
           notes?: string | null
           pips?: number | null
           position_size?: number
@@ -522,6 +527,7 @@ export type Database = {
           strategy_id?: string | null
           take_profit?: number | null
           ticket_id?: string | null
+          timeframe?: string | null
           updated_at?: string | null
           user_id?: string
         }

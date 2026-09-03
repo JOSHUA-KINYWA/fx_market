@@ -87,9 +87,16 @@ export function JournalView({ trades }: JournalViewProps) {
                           <span className="font-semibold text-gray-900">
                             {trade.currency_pair}
                           </span>
-                          <span className="text-sm text-gray-500">
-                            {format(new Date(trade.entry_time), "HH:mm")}
-                          </span>
+                          {trade.ny_session && (
+                            <span className="text-sm text-gray-500">
+                              {trade.ny_session}
+                            </span>
+                          )}
+                          {trade.timeframe && (
+                            <span className="text-sm text-gray-500">
+                              {trade.timeframe}
+                            </span>
+                          )}
                         </div>
                         {trade.notes && (
                           <p className="mt-2 text-sm text-gray-600 line-clamp-2">

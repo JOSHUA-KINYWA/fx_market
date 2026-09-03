@@ -44,6 +44,8 @@ export function TradeForm({
     account_id: initialData?.account_id || accounts[0]?.id || "",
     currency_pair: initialData?.currency_pair || "",
     direction: initialData?.direction || "buy",
+    ny_session: initialData?.ny_session || "10-11 AM NY",
+    timeframe: initialData?.timeframe || "3 min",
     entry_time: initialData?.entry_time
       ? new Date(initialData.entry_time).toISOString().slice(0, 16)
       : new Date().toISOString().slice(0, 16),
@@ -162,6 +164,8 @@ export function TradeForm({
         stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
         take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
         exit_time: formData.exit_time ? new Date(formData.exit_time).toISOString() : null,
+        ny_session: formData.ny_session,
+        timeframe: formData.timeframe,
         profit_loss: formData.profit_loss ? Number.parseFloat(formData.profit_loss) : null,
         strategy_id: formData.strategy_id || null,
         setup_id: formData.setup_id || null,
@@ -298,17 +302,19 @@ export function TradeForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Entry Time *
+            NY Session *
           </label>
-          <input
-            type="datetime-local"
+          <select
             required
-            value={formData.entry_time}
+            value={formData.ny_session}
             onChange={(e) =>
-              setFormData({ ...formData, entry_time: e.target.value })
+              setFormData({ ...formData, ny_session: e.target.value })
             }
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
+          >
+            <option value="10-11 AM NY">10-11 AM NY</option>
+            <option value="2-3 PM NY">2-3 PM NY</option>
+          </select>
         </div>
 
         <div>
@@ -365,16 +371,19 @@ export function TradeForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Exit Time
+            Entry Timeframe *
           </label>
-          <input
-            type="datetime-local"
-            value={formData.exit_time}
+          <select
+            required
+            value={formData.timeframe}
             onChange={(e) =>
-              setFormData({ ...formData, exit_time: e.target.value })
+              setFormData({ ...formData, timeframe: e.target.value })
             }
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
+          >
+            <option value="1 min">1 min</option>
+            <option value="3 min">3 min</option>
+          </select>
         </div>
 
         <div>
@@ -414,7 +423,7 @@ export function TradeForm({
 
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Setup
+            Setup (Optional)
           </label>
           <select
             value={formData.setup_id}
@@ -432,6 +441,7 @@ export function TradeForm({
                 </option>
               ))}
           </select>
+          <p className="mt-1 text-xs text-gray-500">You can leave this as None.</p>
         </div>
 
         <div>
