@@ -11,19 +11,17 @@ interface DashboardStatsProps {
 }
 
 export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
-  // Filter for US30/NAS100 only (includes variations)
-  const us30Trades = trades.filter((t) => {
+  // Limit dashboard metrics to the supported instruments.
+  const supportedPairTrades = trades.filter((t) => {
     const pair = t.currency_pair?.toUpperCase() || "";
     return (
-      pair.includes("US30") || 
-      pair.includes("NAS100") ||
-      pair.includes("U30") ||
+      pair === "US500" ||
       pair === "NAS100" ||
-      pair === "US30"
+      pair === "XAUUSD"
     );
   });
   
-  const closedTrades = us30Trades.filter((t) => t.status === "closed");
+  const closedTrades = supportedPairTrades.filter((t) => t.status === "closed");
   const winningTrades = closedTrades.filter((t) => (t.profit_loss || 0) > 0);
   const losingTrades = closedTrades.filter((t) => (t.profit_loss || 0) < 0);
   const breakevenTrades = closedTrades.filter((t) => (t.profit_loss || 0) === 0);
@@ -196,7 +194,7 @@ export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
     },
     {
       name: "Total Trades",
-      value: us30Trades.length.toString(),
+      value: supportedPairTrades.length.toString(),
       change: `${closedTrades.length} closed`,
       trend: "neutral" as const,
       color: "text-white",
