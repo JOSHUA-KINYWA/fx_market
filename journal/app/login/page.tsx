@@ -35,22 +35,27 @@ function LoginPageInner() {
       return;
     }
 
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        setError("Invalid email or password. Please check your credentials and try again.");
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          setError("Invalid email or password. Please check your credentials and try again.");
+        } else {
+          setError(error.message);
+        }
       } else {
-        setError(error.message);
+        router.push("/dashboard");
+        router.refresh();
       }
+    } catch {
+      setError("Unable to connect to the authentication service. Please check your connection and try again.");
+    } finally {
       setLoading(false);
-    } else {
-      router.push("/dashboard");
-      router.refresh();
     }
   };
 
@@ -205,7 +210,7 @@ function LoginPageInner() {
 
         {/* Footer */}
         <p className="text-center text-slate-400 text-sm mt-6">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/register" className="font-semibold text-blue-400 hover:text-blue-300 transition">
             Sign up here
           </Link>
