@@ -1,7 +1,6 @@
 "use client";
 
 import { Database } from "@/types/database.types";
-import { format } from "date-fns";
 
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
@@ -78,10 +77,12 @@ export function TradeDetail({
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-500">Entry Time</label>
-            <p className="mt-1 text-slate-900">
-              {format(new Date(trade.entry_time), "MMM dd, yyyy HH:mm")}
-            </p>
+            <label className="block text-sm font-medium text-slate-500">NY Session</label>
+            <p className="mt-1 text-slate-900">{trade.ny_session || "Not set"}</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-500">Timeframe</label>
+            <p className="mt-1 text-slate-900">{trade.timeframe || "Not set"}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-500">Entry Price</label>
@@ -105,14 +106,6 @@ export function TradeDetail({
               </span>
             </p>
           </div>
-          {trade.exit_time && (
-            <div>
-              <label className="block text-sm font-medium text-slate-500">Exit Time</label>
-              <p className="mt-1 text-slate-900">
-                {format(new Date(trade.exit_time), "MMM dd, yyyy HH:mm")}
-              </p>
-            </div>
-          )}
           {trade.exit_price && (
             <div>
               <label className="block text-sm font-medium text-slate-500">Exit Price</label>
