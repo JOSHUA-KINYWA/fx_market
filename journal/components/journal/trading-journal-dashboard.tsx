@@ -39,6 +39,14 @@ export function TradingJournalDashboard({
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(activeAccount?.id || null);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(activeAccount || null);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>(trades);
+  const [tradeFilters, setTradeFilters] = useState({
+    period: "all",
+    pair: "",
+    session: "",
+    timeframe: "",
+    direction: "",
+    result: "",
+  });
   const [accountSettings, setAccountSettings] = useState<AccountSettings>({
     startingCapital: 0,
     currentCapital: 0,
@@ -57,25 +65,50 @@ export function TradingJournalDashboard({
 
   const supabase = createClient();
 
-  // Filter trades based on selected account
+  // Filter trades by account and journal review criteria.
   useEffect(() => {
-    if (selectedAccountId) {
-      const filtered = trades.filter((t) => t.account_id === selectedAccountId);
-      setFilteredTrades(filtered);
-      const account = accounts.find((a) => a.id === selectedAccountId);
-      setSelectedAccount(account || null);
-      if (account) {
-        setAccountSettings((prev) => ({
-          ...prev,
-          startingCapital: account.initial_balance || prev.startingCapital,
-          currentCapital: account.current_balance || prev.currentCapital,
-        }));
-      }
-    } else {
-      setFilteredTrades(trades);
-      setSelectedAccount(null);
+    const accountTrades = selectedAccountId
+      ? trades.filter((t) => t.account_id === selectedAccountId)
+      : trades;
+    const now = new Date();
+    const periodStart = new Date(now);
+
+    if (tradeFilters.period === "week") {
+      periodStart.setDate(now.getDate() - 7);
+    } else if (tradeFilters.period === "month") {
+      periodStart.setDate(now.getDate() - 30);
     }
-  }, [selectedAccountId, trades, accounts]);
+
+    const filtered = accountTrades.filter((trade) => {
+      const matchesPeriod = tradeFilters.period === "all"
+        || new Date(trade.exit_time || trade.entry_time) >= periodStart;
+      const matchesPair = !tradeFilters.pair || trade.currency_pair === tradeFilters.pair;
+      const matchesSession = !tradeFilters.session || trade.ny_session === tradeFilters.session;
+      const matchesTimeframe = !tradeFilters.timeframe || trade.timeframe === tradeFilters.timeframe;
+      const matchesDirection = !tradeFilters.direction || trade.direction === tradeFilters.direction;
+      const matchesResult = !tradeFilters.result
+        || (tradeFilters.result === "win" && (trade.profit_loss || 0) > 0)
+        || (tradeFilters.result === "loss" && (trade.profit_loss || 0) < 0)
+        || (tradeFilters.result === "breakeven" && (trade.profit_loss || 0) === 0);
+
+      return matchesPeriod && matchesPair && matchesSession && matchesTimeframe && matchesDirection && matchesResult;
+    });
+
+    setFilteredTrades(filtered);
+    const account = accounts.find((a) => a.id === selectedAccountId);
+    setSelectedAccount(account || null);
+    if (account) {
+      setAccountSettings((prev) => ({
+        ...prev,
+        startingCapital: account.initial_balance || prev.startingCapital,
+        currentCapital: account.current_balance || prev.currentCapital,
+      }));
+    }
+  }, [selectedAccountId, tradeFilters, trades, accounts]);
+
+  const resetTradeFilters = () => {
+    setTradeFilters({ period: "all", pair: "", session: "", timeframe: "", direction: "", result: "" });
+  };
 
   // Refresh data from database
   const refreshData = async () => {
@@ -362,6 +395,25 @@ export function TradingJournalDashboard({
   );
   const todayPnL = todayTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
 
+  const getBestBreakdown = (key: "currency_pair" | "ny_session" | "timeframe") => {
+    const breakdown = new Map<string, { pnl: number; wins: number; trades: number }>();
+    closedTrades.forEach((trade) => {
+      const value = trade[key];
+      if (!value) return;
+      const current = breakdown.get(value) || { pnl: 0, wins: 0, trades: 0 };
+      current.pnl += trade.profit_loss || 0;
+      current.wins += (trade.profit_loss || 0) > 0 ? 1 : 0;
+      current.trades += 1;
+      breakdown.set(value, current);
+    });
+
+    return [...breakdown.entries()].sort((a, b) => b[1].pnl - a[1].pnl)[0] || null;
+  };
+
+  const bestPair = getBestBreakdown("currency_pair");
+  const bestSession = getBestBreakdown("ny_session");
+  const bestTimeframe = getBestBreakdown("timeframe");
+
   const stats = {
     totalTrades: filteredTrades.length,
     wins: wins.length,
@@ -500,6 +552,83 @@ export function TradingJournalDashboard({
             </button>
           </div>
 
+          <div className="mb-4 rounded-lg border border-slate-600 bg-slate-700 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Trade Review Filters</h3>
+              <button
+                type="button"
+                onClick={resetTradeFilters}
+                className="text-xs text-blue-300 hover:text-blue-200"
+              >
+                Reset filters
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+              <select
+                value={tradeFilters.period}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, period: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="Review period"
+              >
+                <option value="all">All time</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">Last 30 days</option>
+              </select>
+              <select
+                value={tradeFilters.pair}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, pair: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="Currency pair"
+              >
+                <option value="">All pairs</option>
+                <option value="US500">US500</option>
+                <option value="NAS100">NAS100</option>
+                <option value="XAUUSD">XAUUSD</option>
+              </select>
+              <select
+                value={tradeFilters.session}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, session: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="NY session"
+              >
+                <option value="">All sessions</option>
+                <option value="10-11 AM NY">10-11 AM NY</option>
+                <option value="2-3 PM NY">2-3 PM NY</option>
+              </select>
+              <select
+                value={tradeFilters.timeframe}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, timeframe: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="Timeframe"
+              >
+                <option value="">All timeframes</option>
+                <option value="1 min">1 min</option>
+                <option value="3 min">3 min</option>
+              </select>
+              <select
+                value={tradeFilters.direction}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, direction: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="Direction"
+              >
+                <option value="">Both directions</option>
+                <option value="buy">Buy</option>
+                <option value="sell">Sell</option>
+              </select>
+              <select
+                value={tradeFilters.result}
+                onChange={(e) => setTradeFilters({ ...tradeFilters, result: e.target.value })}
+                className="rounded-lg border border-slate-500 bg-slate-600 px-3 py-2 text-sm text-white"
+                aria-label="Trade result"
+              >
+                <option value="">All results</option>
+                <option value="win">Wins</option>
+                <option value="loss">Losses</option>
+                <option value="breakeven">Breakeven</option>
+              </select>
+            </div>
+          </div>
+
           {activeTab === "overview" && (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -627,6 +756,37 @@ export function TradingJournalDashboard({
                 <div className="bg-slate-700 rounded-lg p-3">
                   <span className="text-slate-400 text-sm">Max Loss Streak</span>
                   <p className="text-lg font-semibold text-white">{stats.consecutiveLosses}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-lg border border-slate-600 bg-slate-700 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-white">Review Insights</h3>
+                  <span className="text-xs text-slate-400">Based on closed trades</span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {[
+                    ["Best Pair", bestPair],
+                    ["Best Session", bestSession],
+                    ["Best Timeframe", bestTimeframe],
+                  ].map(([label, result]) => {
+                    const breakdown = result as [string, { pnl: number; wins: number; trades: number }] | null;
+                    return (
+                      <div key={label as string} className="rounded-lg bg-slate-800 p-3">
+                        <p className="text-xs text-slate-400">{label as string}</p>
+                        {breakdown ? (
+                          <>
+                            <p className="mt-1 font-semibold text-white">{breakdown[0]}</p>
+                            <p className={`text-sm ${breakdown[1].pnl >= 0 ? "text-green-400" : "text-red-400"}`}>
+                              {breakdown[1].trades} trades, {breakdown[1].wins}/{breakdown[1].trades} wins, {breakdown[1].pnl >= 0 ? "+" : ""}${breakdown[1].pnl.toFixed(2)}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-sm text-slate-500">No closed trades</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>
@@ -850,7 +1010,7 @@ export function TradingJournalDashboard({
                               </span>
                               <span className="font-semibold text-white">{trade.currency_pair}</span>
                               <span className="text-sm text-slate-400">
-                                {format(new Date(trade.entry_time), "MMM dd, yyyy HH:mm")}
+                                {trade.ny_session || "Session not set"} · {trade.timeframe || "Timeframe not set"}
                               </span>
                               {trade.status && (
                                 <span className="px-2 py-1 text-xs rounded bg-slate-600 text-slate-300">

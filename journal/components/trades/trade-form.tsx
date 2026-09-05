@@ -46,9 +46,9 @@ export function TradeForm({
     direction: initialData?.direction || "buy",
     ny_session: initialData?.ny_session || "10-11 AM NY",
     timeframe: initialData?.timeframe || "3 min",
-    entry_time: initialData?.entry_time
-      ? new Date(initialData.entry_time).toISOString().slice(0, 16)
-      : new Date().toISOString().slice(0, 16),
+    entry_date: initialData?.entry_time
+      ? new Date(initialData.entry_time).toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10),
     position_size: initialData?.position_size?.toString() || "",
     stop_loss: initialData?.stop_loss?.toString() || "",
     take_profit: initialData?.take_profit?.toString() || "",
@@ -122,7 +122,7 @@ export function TradeForm({
         position_size: formData.position_size,
         stop_loss: formData.stop_loss,
         take_profit: formData.take_profit,
-        entry_time: formData.entry_time,
+        entry_time: formData.entry_date,
       });
 
       if (!validation.isValid) {
@@ -157,7 +157,7 @@ export function TradeForm({
         account_id: formData.account_id,
         currency_pair: formData.currency_pair.toUpperCase(),
         direction: formData.direction,
-        entry_time: new Date(formData.entry_time).toISOString(),
+        entry_time: new Date(`${formData.entry_date}T12:00:00`).toISOString(),
         entry_price: initialData?.entry_price ?? 0,
         exit_price: initialData?.exit_price ?? null,
         position_size: Number.parseFloat(formData.position_size),
@@ -317,6 +317,22 @@ export function TradeForm({
             <option value="10-11 AM NY">10-11 AM NY</option>
             <option value="2-3 PM NY">2-3 PM NY</option>
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Trade Date *
+          </label>
+          <input
+            type="date"
+            required
+            value={formData.entry_date}
+            onChange={(e) =>
+              setFormData({ ...formData, entry_date: e.target.value })
+            }
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="mt-1 text-xs text-gray-500">The calendar date when the trade was taken.</p>
         </div>
 
         <div>
