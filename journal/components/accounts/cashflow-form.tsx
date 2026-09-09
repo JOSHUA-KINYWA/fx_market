@@ -48,9 +48,8 @@ export function CashflowForm({ account }: CashflowFormProps) {
     }
 
     const currentBalance = Number(account.current_balance || 0);
-    const updatedBalance = type === "deposit"
-      ? currentBalance + parsedAmount
-      : currentBalance - parsedAmount;
+    const movementEffect = type === "deposit" ? parsedAmount : -parsedAmount;
+    const updatedBalance = currentBalance + movementEffect;
 
     if (type === "withdrawal" && updatedBalance < 0) {
       setError("Profit withdrawal exceeds the available account balance.");

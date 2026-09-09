@@ -62,8 +62,8 @@ export function AccountLedgerSummary({
         throw deleteError;
       }
 
-      const reversal = movement.type === "deposit" ? -Number(movement.amount || 0) : Number(movement.amount || 0);
-      const nextBalance = Number((balance + reversal).toFixed(2));
+      const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
+      const nextBalance = Number((balance - oldEffect).toFixed(2));
 
       const { error: accountError } = await supabase
         .from("trading_accounts")
