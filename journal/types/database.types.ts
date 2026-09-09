@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_cashflows: {
+        Row: {
+          account_id: string
+          amount: number | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          note: string | null
+          posted_at: string | null
+          reason: string | null
+          status: string | null
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          note?: string | null
+          posted_at?: string | null
+          reason?: string | null
+          status?: string | null
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          note?: string | null
+          posted_at?: string | null
+          reason?: string | null
+          status?: string | null
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_cashflows_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "trading_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_cashflows_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       csv_import_logs: {
         Row: {
           account_id: string | null

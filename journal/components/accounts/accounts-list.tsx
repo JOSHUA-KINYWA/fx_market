@@ -85,7 +85,13 @@ export function AccountsList({ accounts }: AccountsListProps) {
                         href={`/accounts/${account.id}/cashflow`}
                         className="text-emerald-600 hover:text-emerald-700"
                       >
-                        Deposit / Withdraw
+                        Deposit / Profit Withdrawal
+                      </Link>
+                      <Link
+                        href={`/accounts/${account.id}/cashflow`}
+                        className="text-slate-600 hover:text-slate-800"
+                      >
+                        View Details
                       </Link>
                       <Link
                         href={`/accounts/${account.id}/edit`}

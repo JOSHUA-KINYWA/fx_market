@@ -19,8 +19,10 @@ interface CashflowFormProps {
 export function CashflowForm({ account }: CashflowFormProps) {
   const router = useRouter();
   const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
+  const [status, setStatus] = useState<"pending" | "completed" | "review">("completed");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -51,18 +53,20 @@ export function CashflowForm({ account }: CashflowFormProps) {
       : currentBalance - parsedAmount;
 
     if (type === "withdrawal" && updatedBalance < 0) {
-      setError("Withdrawal exceeds the available account balance.");
+      setError("Profit withdrawal exceeds the available account balance.");
       return;
     }
 
     setLoading(true);
 
     try {
+      const balancePayload = {
+        current_balance: Number(updatedBalance.toFixed(2)),
+      };
+
       const { error: updateError } = await supabase
         .from("trading_accounts")
-        .update({
-          current_balance: Number(updatedBalance.toFixed(2)),
-        })
+        .update(balancePayload)
         .eq("id", account.id)
         .eq("user_id", user.id);
 
@@ -70,14 +74,28 @@ export function CashflowForm({ account }: CashflowFormProps) {
         throw updateError;
       }
 
-      const actionLabel = type === "deposit" ? "deposit" : "withdrawal";
-      const actionMessage = `${type === "deposit" ? "Deposit" : "Withdrawal"} recorded for ${account.account_name}. The balance is now ${account.currency || "USD"} ${updatedBalance.toFixed(2)}.`;
+      const ledgerPayload = {
+        user_id: user.id,
+        account_id: account.id,
+        type,
+        amount: Number(parsedAmount.toFixed(2)),
+        status,
+        note: note || reason || (type === "withdrawal" ? "Profit withdrawal" : "Account deposit"),
+        reason: reason || (type === "withdrawal" ? "Profit withdrawal" : "Account funding"),
+        currency: account.currency || "USD",
+        posted_at: `${date}T00:00:00.000Z`,
+      };
+
+      const { error: ledgerError } = await supabase
+        .from("account_cashflows")
+        .insert(ledgerPayload);
+
+      if (ledgerError) {
+        throw ledgerError;
+      }
 
       router.push("/accounts");
       router.refresh();
-
-      // Keep the UI feedback in memory for the form consumer if needed.
-      console.info(actionMessage);
     } catch (err: any) {
       setError(err.message || "Unable to save cash flow record.");
     } finally {
@@ -93,7 +111,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
             Account Ledger
           </span>
           <h1 className="text-3xl font-bold text-slate-900 mt-2">
-            {type === "deposit" ? "Add Deposit" : "Add Withdrawal"}
+            {type === "deposit" ? "Add Deposit" : "Profit Withdrawal"}
           </h1>
         </div>
         <div className="text-right">
@@ -123,7 +141,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="deposit">Deposit</option>
-            <option value="withdrawal">Withdrawal</option>
+            <option value="withdrawal">Profit Withdrawal</option>
           </select>
         </div>
 
@@ -158,6 +176,34 @@ export function CashflowForm({ account }: CashflowFormProps) {
 
         <div>
           <label className="block text-sm font-medium text-slate-700">
+            Status
+          </label>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "pending" | "completed" | "review")}
+            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="completed">Completed</option>
+            <option value="pending">Pending</option>
+            <option value="review">Review</option>
+          </select>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-slate-700">
+            Purpose / Reason
+          </label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Profit withdrawal, trading capital, etc."
+          />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-slate-700">
             Note
           </label>
           <input
@@ -165,7 +211,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
             value={note}
             onChange={(event) => setNote(event.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Optional memo"
+            placeholder="Optional detail or vendor note"
           />
         </div>
       </div>
@@ -175,7 +221,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Saving..." : type === "deposit" ? "Save Deposit" : "Save Withdrawal"}
+          {loading ? "Saving..." : type === "deposit" ? "Save Deposit" : "Save Profit Withdrawal"}
         </Button>
       </div>
     </form>
