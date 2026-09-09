@@ -14,7 +14,6 @@ interface AccountFormProps {
     account_type: string;
     currency: string;
     initial_balance: string;
-    current_balance: string;
     is_active: boolean;
   };
 }
@@ -31,7 +30,6 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
     account_type: initialData?.account_type || "demo",
     currency: initialData?.currency || "USD",
     initial_balance: initialData?.initial_balance || "",
-    current_balance: initialData?.current_balance || "",
     is_active: initialData?.is_active ?? true,
   });
 
@@ -207,25 +205,6 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
             placeholder="0.00"
           />
         </div>
-
-        {accountId && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Current Balance (Auto-calculated)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.current_balance}
-              readOnly
-              className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm bg-slate-50 text-slate-600"
-              placeholder="0.00"
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              Calculated from initial balance + P&L from closed trades
-            </p>
-          </div>
-        )}
 
         <div className="flex items-center">
           <input
