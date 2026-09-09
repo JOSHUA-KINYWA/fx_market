@@ -96,12 +96,10 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
     const symbol = getValue(["Symbol", "symbol", "Instrument", "instrument"]);
     const type = getValue(["Type", "type", "Trade Side", "trade side"]);
     const openTime = getValue(["Open Time", "OpenTime", "open time", "Entry Time", "entry time", "Time", "time"]);
-    const price = getValue(["Price", "price", "Open Price", "OpenPrice", "open price", "Entry Price", "entry price"]);
     const volume = getValue(["Volume", "volume", "Lots", "lots", "Size", "size"]);
     const sl = getValue(["S / L", "S/L", "Stop Loss", "stop loss", "SL", "sl"]);
     const tp = getValue(["T / P", "T/P", "Take Profit", "take profit", "TP", "tp"]);
     const closeTime = getValue(["Close Time", "CloseTime", "close time", "Exit Time", "exit time"]);
-    const closePrice = getValue(["Close Price", "ClosePrice", "close price", "Exit Price", "exit price"]);
     const profit = getValue(["Profit", "profit", "P&L", "pnl", "P/L", "pl"]);
 
     const currencyPair = symbol ? symbol.replace("/", "").replace("_", "").trim() : null;
@@ -112,12 +110,10 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
       currency_pair: currencyPair,
       direction,
       entry_time: parseDate(openTime) || new Date().toISOString(),
-      entry_price: price ? Number.parseFloat(String(price)) : 0,
       position_size: volume ? Number.parseFloat(String(volume)) : 0,
       stop_loss: sl && sl !== "0" ? Number.parseFloat(String(sl)) : null,
       take_profit: tp && tp !== "0" ? Number.parseFloat(String(tp)) : null,
       exit_time: closeTime ? parseDate(closeTime) : null,
-      exit_price: closePrice ? Number.parseFloat(String(closePrice)) : null,
       profit_loss: profit ? Number.parseFloat(String(profit)) : null,
     };
   };
@@ -188,9 +184,8 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
             .map((row: any) => {
               try {
                 const mapped = mapMT4Row(row, headers);
-                // Set status to "closed" if trade has exit_time, exit_price, or profit_loss (historical trades)
-                // Default to "closed" for CSV imports since they're usually completed trades
-                const hasExitData = mapped.exit_time || mapped.exit_price || (mapped.profit_loss !== null && mapped.profit_loss !== undefined);
+                // Set status to "closed" if the trade has an exit time or recorded profit/loss.
+                const hasExitData = mapped.exit_time || (mapped.profit_loss !== null && mapped.profit_loss !== undefined);
                 return {
                   user_id: user.id,
                   account_id: accountId,
@@ -202,7 +197,7 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
                 return null;
               }
             })
-            .filter((t: any) => t && t.currency_pair && t.entry_price > 0);
+            .filter((t: any) => t && t.currency_pair && t.position_size > 0);
 
           if (mappedTrades.length === 0) {
             await supabase
@@ -221,7 +216,7 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
           // Check for existing trades and remove duplicates BEFORE importing
           const { data: existingTrades } = await supabase
             .from("trades")
-            .select("id, ticket_id, entry_time, currency_pair, entry_price, exit_time, exit_price, position_size, status")
+            .select("id, ticket_id, entry_time, currency_pair, exit_time, position_size, status, profit_loss")
             .eq("user_id", user.id)
             .eq("account_id", accountId);
 
@@ -246,45 +241,38 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
               }
             }
             
-            // 2. Match by entry_time + currency_pair + entry_price + status
-            // This handles trades with the same entry point
+            // 2. Match by entry day + currency_pair + position_size + status shape.
+            // This handles trades with the same entry profile without depending on entry/exit prices.
             const profileMatch = existingTrades.find((existing) => {
-              // Parse dates to compare just the date part (remove milliseconds/timezone differences)
               const newEntryDate = newTrade.entry_time ? new Date(newTrade.entry_time).toISOString().split('T')[0] : null;
               const existingEntryDate = existing.entry_time ? new Date(existing.entry_time).toISOString().split('T')[0] : null;
-              
+
               const sameDay = newEntryDate === existingEntryDate;
               const samePair = existing.currency_pair === newTrade.currency_pair;
-              const sameEntryPrice = Math.abs((existing.entry_price || 0) - (newTrade.entry_price || 0)) < 0.00001;
-              
-              if (!sameDay || !samePair || !sameEntryPrice) return false;
-              
-              // Same entry point - now check exit data
-              const newHasExit = newTrade.exit_time || newTrade.exit_price;
-              const existingHasExit = existing.exit_time || existing.exit_price;
-              
-              // Both closed - compare exit details
+              const sameSize = Math.abs((existing.position_size || 0) - (newTrade.position_size || 0)) < 0.0001;
+
+              if (!sameDay || !samePair || !sameSize) return false;
+
+              const newHasExit = newTrade.exit_time || (newTrade.profit_loss !== null && newTrade.profit_loss !== undefined);
+              const existingHasExit = existing.exit_time || (existing.profit_loss !== null && existing.profit_loss !== undefined);
+
               if (newHasExit && existingHasExit) {
-                const sameExitPrice = Math.abs((existing.exit_price || 0) - (newTrade.exit_price || 0)) < 0.00001;
                 const sameExitDate = existing.exit_time && newTrade.exit_time
                   ? new Date(existing.exit_time).toISOString().split('T')[0] === new Date(newTrade.exit_time).toISOString().split('T')[0]
                   : existing.exit_time === newTrade.exit_time;
-                
-                return sameExitDate && sameExitPrice;
+
+                return sameExitDate;
               }
-              
-              // Both open - compare position size
+
               if (!newHasExit && !existingHasExit) {
-                const sameSize = Math.abs((existing.position_size || 0) - (newTrade.position_size || 0)) < 0.0001;
-                return sameSize;
+                return true;
               }
-              
-              // One open, one closed = different trades
+
               return false;
             });
-            
+
             if (profileMatch) {
-              console.log(`Duplicate by profile: ${newTrade.currency_pair} @ ${newTrade.entry_price}`);
+              console.log(`Duplicate by profile: ${newTrade.currency_pair} @ ${newTrade.position_size}`);
               duplicatesByProfile++;
               return false;
             }
@@ -328,8 +316,6 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
           const { calculateTradeMetrics } = await import("@/lib/utils/trade-calculations");
           const tradesWithMetrics = newTrades.map((trade: any) => {
             const metrics = calculateTradeMetrics({
-              entry_price: trade.entry_price,
-              exit_price: trade.exit_price || null,
               stop_loss: trade.stop_loss || null,
               take_profit: trade.take_profit || null,
               direction: trade.direction,
@@ -340,7 +326,7 @@ export function CSVImportForm({ accounts }: CSVImportFormProps) {
               current_balance: account?.current_balance || null,
             });
             // Ensure status is preserved and set correctly - if we have exit data, it should be closed
-            const hasExitData = trade.exit_time || trade.exit_price || (trade.profit_loss !== null && trade.profit_loss !== undefined);
+            const hasExitData = trade.exit_time || (trade.profit_loss !== null && trade.profit_loss !== undefined);
             const finalStatus = hasExitData ? "closed" : (trade.status || "open");
             return { ...trade, ...metrics, status: finalStatus };
           });
