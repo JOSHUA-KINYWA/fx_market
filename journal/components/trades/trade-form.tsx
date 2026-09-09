@@ -140,8 +140,6 @@ export function TradeForm({
       }
 
       const metrics = calculateTradeMetrics({
-        entry_price: null,
-        exit_price: null,
         stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
         take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
         direction: formData.direction,

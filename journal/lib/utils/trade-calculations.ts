@@ -8,8 +8,6 @@ export interface TradeMetrics {
 }
 
 export function calculateTradeMetrics(trade: {
-  entry_price: number | null;
-  exit_price: number | null;
   stop_loss: number | null;
   take_profit: number | null;
   direction: string;
@@ -26,17 +24,9 @@ export function calculateTradeMetrics(trade: {
     risk_amount: null,
   };
 
-  // Calculate pips if we have entry and exit prices
-  if (trade.entry_price !== null && trade.entry_price !== undefined && trade.exit_price !== null && trade.exit_price !== undefined && trade.currency_pair) {
-    const pair = trade.currency_pair.toUpperCase();
-    const pipValue = pair.includes("JPY") ? 0.01 : 0.0001;
-    
-    if (trade.direction === "buy") {
-      metrics.pips = (trade.exit_price - trade.entry_price) / pipValue;
-    } else {
-      metrics.pips = (trade.entry_price - trade.exit_price) / pipValue;
-    }
-  }
+  // Pips are intentionally not calculated here because the requested trade contract
+  // stores only the session/timeframe/position/risk fields and the resulting P/L signal.
+  // The trade file does not supply entry/exit prices anymore.
 
   // Calculate risk_reward_ratio and r_multiple if we have SL and TP dollar amounts
   if (trade.stop_loss && trade.take_profit) {
@@ -46,9 +36,9 @@ export function calculateTradeMetrics(trade: {
     if (riskAmount > 0) {
       metrics.risk_reward_ratio = rewardAmount / riskAmount;
 
-      // R-multiple: if trade is closed with actual P&L, use actual vs risk amount
-      // Otherwise, use planned R:R
-      if (trade.exit_price && trade.exit_time && trade.profit_loss !== null && trade.profit_loss !== undefined) {
+      // R-multiple: if trade is closed with actual P&L, use actual vs risk amount.
+      // Otherwise, use planned R:R. The exit price must not be required anymore.
+      if (trade.exit_time && trade.profit_loss !== null && trade.profit_loss !== undefined) {
         if (riskAmount > 0) {
           metrics.r_multiple = trade.profit_loss / riskAmount;
         } else {

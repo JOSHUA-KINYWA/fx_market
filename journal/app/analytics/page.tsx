@@ -54,8 +54,6 @@ export default async function AnalyticsPage({
         
         // Calculate all metrics
         const metrics = calculateTradeMetrics({
-          entry_price: trade.entry_price,
-          exit_price: trade.exit_price || null,
           stop_loss: trade.stop_loss || null,
           take_profit: trade.take_profit || null,
           direction: trade.direction,

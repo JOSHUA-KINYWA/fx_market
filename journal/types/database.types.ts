@@ -498,10 +498,8 @@ export type Database = {
           created_at: string | null
           currency_pair: string
           direction: string
-          entry_price: number
           entry_time: string
           execution_rating: number | null
-          exit_price: number | null
           exit_time: string | null
           id: string
           lessons_learned: string | null
@@ -531,10 +529,8 @@ export type Database = {
           created_at?: string | null
           currency_pair: string
           direction: string
-          entry_price: number
           entry_time: string
           execution_rating?: number | null
-          exit_price?: number | null
           exit_time?: string | null
           id?: string
           lessons_learned?: string | null
@@ -564,10 +560,8 @@ export type Database = {
           created_at?: string | null
           currency_pair?: string
           direction?: string
-          entry_price?: number
           entry_time?: string
           execution_rating?: number | null
-          exit_price?: number | null
           exit_time?: string | null
           id?: string
           lessons_learned?: string | null
