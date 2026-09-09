@@ -85,12 +85,6 @@ export function TradeDetail({
             <p className="mt-1 text-slate-900">{trade.timeframe || "Not set"}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-500">Entry Price</label>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {Number(trade.entry_price).toFixed(5)}
-            </p>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-slate-500">Position Size</label>
             <p className="mt-1 text-slate-900">{Number(trade.position_size).toFixed(2)} lots</p>
           </div>
