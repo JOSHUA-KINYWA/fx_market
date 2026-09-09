@@ -58,8 +58,6 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
       account_type: formData.account_type,
       currency: formData.currency,
       initial_balance: Number.parseFloat(formData.initial_balance) || 0,
-      // current_balance will be calculated by the database trigger
-      current_balance: Number.parseFloat(formData.initial_balance) || 0,
       is_active: formData.is_active,
     };
 
@@ -67,13 +65,20 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
       if (accountId) {
         const { error: updateError } = await supabase
           .from("trading_accounts")
-          .update(accountData)
+          .update({
+            account_name: accountData.account_name,
+            broker_name: accountData.broker_name,
+            account_number: accountData.account_number,
+            account_type: accountData.account_type,
+            currency: accountData.currency,
+            initial_balance: accountData.initial_balance,
+            is_active: accountData.is_active,
+          })
           .eq("id", accountId)
           .eq("user_id", user.id);
 
         if (updateError) throw updateError;
 
-        // Update balance using database function
         const { error: balanceError } = await supabase.rpc("update_account_balance", {
           account_id: accountId,
         });
@@ -84,6 +89,7 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
           .insert({
             user_id: user.id,
             ...accountData,
+            current_balance: Number.parseFloat(formData.initial_balance) || 0,
           });
 
         if (insertError) throw insertError;

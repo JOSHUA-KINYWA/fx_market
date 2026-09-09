@@ -29,27 +29,6 @@ export default async function EditAccountPage({
     redirect("/accounts");
   }
 
-  // Calculate current balance from trades
-  const { data: accountTrades } = await supabase
-    .from("trades")
-    .select("profit_loss")
-    .eq("account_id", id)
-    .eq("status", "closed");
-
-  const totalPnl = accountTrades?.reduce(
-    (sum, t) => sum + (t.profit_loss || 0),
-    0
-  ) || 0;
-  const calculatedBalance = (account.initial_balance || 0) + totalPnl;
-
-  // Update account balance if it's different
-  if (Math.abs(calculatedBalance - (account.current_balance || 0)) > 0.01) {
-    await supabase
-      .from("trading_accounts")
-      .update({ current_balance: calculatedBalance })
-      .eq("id", id);
-  }
-
   return (
     <AppLayout>
       <div className="px-4 py-6 sm:px-0">
@@ -69,7 +48,7 @@ export default async function EditAccountPage({
             account_type: account.account_type || "demo",
             currency: account.currency || "USD",
             initial_balance: account.initial_balance?.toString() || "0",
-            current_balance: calculatedBalance.toFixed(2),
+            current_balance: account.current_balance?.toString() || "0",
             is_active: account.is_active,
           }}
         />
