@@ -267,8 +267,6 @@ export function TradingJournalDashboard({
       "Side",
       "NY Session",
       "Timeframe",
-      "Entry",
-      "Exit",
       "Position Size",
       "SL",
       "TP",
@@ -282,8 +280,6 @@ export function TradingJournalDashboard({
       t.direction.toUpperCase(),
       t.ny_session || "",
       t.timeframe || "",
-      t.entry_price.toString(),
-      t.exit_price?.toString() || "",
       t.position_size.toString(),
       t.stop_loss?.toString() || "",
       t.take_profit?.toString() || "",
@@ -1055,17 +1051,7 @@ export function TradingJournalDashboard({
                                 </span>
                               )}
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div>
-                                <span className="text-slate-400">Entry:</span>{" "}
-                                <span className="text-white">{trade.entry_price}</span>
-                              </div>
-                              {trade.exit_price && (
-                                <div>
-                                  <span className="text-slate-400">Exit:</span>{" "}
-                                  <span className="text-white">{trade.exit_price}</span>
-                                </div>
-                              )}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                               <div>
                                 <span className="text-slate-400">Size:</span>{" "}
                                 <span className="text-white">{trade.position_size}</span>

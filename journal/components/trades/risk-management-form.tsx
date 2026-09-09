@@ -55,7 +55,7 @@ export function RiskManagementForm({ trade, account }: RiskManagementFormProps) 
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riskPercentage, account?.current_balance, trade.stop_loss, trade.take_profit, trade.entry_price, trade.direction]);
+  }, [riskPercentage, account?.current_balance, trade.stop_loss, trade.take_profit, trade.direction]);
 
   const handleSave = async () => {
     setLoading(true);

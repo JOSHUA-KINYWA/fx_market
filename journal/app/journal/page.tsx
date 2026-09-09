@@ -50,7 +50,7 @@ export default async function JournalPage() {
   // Update trades that are missing metrics or have incorrect status
   if (trades && trades.length > 0) {
     for (const trade of trades) {
-      const hasExitData = trade.exit_time || trade.exit_price || (trade.profit_loss !== null && trade.profit_loss !== undefined);
+      const hasExitData = trade.exit_time || (trade.profit_loss !== null && trade.profit_loss !== undefined);
       const shouldBeClosed = hasExitData && trade.status !== "closed";
       const missingMetrics = !trade.pips && !trade.risk_reward_ratio && !trade.r_multiple;
 
