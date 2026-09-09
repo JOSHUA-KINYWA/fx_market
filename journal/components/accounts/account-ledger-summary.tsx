@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface LedgerMovement {
   id: string;
@@ -26,10 +29,125 @@ export function AccountLedgerSummary({
   currentBalance,
   movements,
 }: AccountLedgerSummaryProps) {
-  const visibleMovements = movements.filter((movement) => {
+  const router = useRouter();
+  const supabase = createClient();
+  const [movementRows, setMovementRows] = useState<LedgerMovement[]>(movements);
+  const [balance, setBalance] = useState(currentBalance);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingForm, setEditingForm] = useState<{ type: "deposit" | "withdrawal"; amount: string; note: string; status: "pending" | "completed" | "review"; created_at: string }>({
+    type: "deposit",
+    amount: "0",
+    note: "",
+    status: "completed",
+    created_at: new Date().toISOString().slice(0, 10),
+  });
+
+  const visibleMovements = movementRows.filter((movement) => {
     const sampleText = `${movement.note || ""}`.toLowerCase();
     return !sampleText.includes("sort account issues") && !sampleText.includes("paid for account");
   });
+
+  const handleDeleteMovement = async (movement: LedgerMovement) => {
+    if (!confirm("Delete this deposit or withdrawal entry from the ledger?")) {
+      return;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("account_cashflows")
+        .delete()
+        .eq("id", movement.id);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      const reversal = movement.type === "deposit" ? -Number(movement.amount || 0) : Number(movement.amount || 0);
+      const nextBalance = Number((balance + reversal).toFixed(2));
+
+      const { error: accountError } = await supabase
+        .from("trading_accounts")
+        .update({ current_balance: nextBalance })
+        .eq("id", accountId);
+
+      if (accountError) {
+        throw accountError;
+      }
+
+      setMovementRows((rows) => rows.filter((row) => row.id !== movement.id));
+      setBalance(nextBalance);
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to delete ledger movement:", error);
+      alert("Unable to delete this ledger movement.");
+    }
+  };
+
+  const startEditMovement = (movement: LedgerMovement) => {
+    setEditingId(movement.id);
+    setEditingForm({
+      type: movement.type,
+      amount: String(movement.amount || 0),
+      note: movement.note || "",
+      status: movement.status,
+      created_at: movement.created_at ? movement.created_at.slice(0, 10) : new Date().toISOString().slice(0, 10),
+    });
+  };
+
+  const saveMovementEdit = async (movement: LedgerMovement) => {
+    const amount = Number.parseFloat(editingForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Enter a valid amount greater than zero.");
+      return;
+    }
+
+    try {
+      const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
+      const newEffect = editingForm.type === "deposit" ? amount : -amount;
+      const nextBalance = Number((balance - oldEffect + newEffect).toFixed(2));
+
+      const { error: updateError } = await supabase
+        .from("account_cashflows")
+        .update({
+          type: editingForm.type,
+          amount: Number(amount.toFixed(2)),
+          note: editingForm.note,
+          status: editingForm.status,
+          created_at: `${editingForm.created_at}T00:00:00.000Z`,
+        })
+        .eq("id", movement.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { error: accountError } = await supabase
+        .from("trading_accounts")
+        .update({ current_balance: nextBalance })
+        .eq("id", accountId);
+
+      if (accountError) {
+        throw accountError;
+      }
+
+      const updatedMovement = {
+        ...movement,
+        type: editingForm.type,
+        amount,
+        note: editingForm.note,
+        status: editingForm.status,
+        created_at: `${editingForm.created_at}T00:00:00.000Z`,
+      };
+
+      setMovementRows((rows) => rows.map((row) => (row.id === movement.id ? updatedMovement : row)));
+      setBalance(nextBalance);
+      setEditingId(null);
+      router.refresh();
+    } catch (error) {
+      console.error("Failed to update ledger movement:", error);
+      alert("Unable to update this ledger movement.");
+    }
+  };
 
   const depositTotal = visibleMovements
     .filter((m) => m.type === "deposit")
@@ -120,7 +238,7 @@ export function AccountLedgerSummary({
             Current Balance
           </div>
           <div className="mt-2 text-4xl font-black tracking-tight text-slate-900">
-            {currency || "USD"} {Number(currentBalance || 0).toFixed(2)}
+            {currency || "USD"} {Number(balance || 0).toFixed(2)}
           </div>
         </div>
       </div>
@@ -223,33 +341,111 @@ export function AccountLedgerSummary({
               {visibleMovements.slice(0, 5).map((movement) => {
                 const amount = Number(movement.amount || 0);
                 const balanceBefore = refundableMovementBalanceBeforeById.get(movement.id);
+                const isEditing = editingId === movement.id;
 
                 return (
                   <div key={movement.id} className="rounded-xl border border-slate-100 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-black text-slate-900">
-                          {movement.type === "deposit" ? "Deposit" : "Withdrawal"}
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                          <select
+                            value={editingForm.type}
+                            onChange={(event) => setEditingForm({ ...editingForm, type: event.target.value as "deposit" | "withdrawal" })}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="deposit">Deposit</option>
+                            <option value="withdrawal">Withdrawal</option>
+                          </select>
+                          <input
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={editingForm.amount}
+                            onChange={(event) => setEditingForm({ ...editingForm, amount: event.target.value })}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          />
+                          <select
+                            value={editingForm.status}
+                            onChange={(event) => setEditingForm({ ...editingForm, status: event.target.value as "pending" | "completed" | "review" })}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
+                            <option value="review">Review</option>
+                          </select>
+                          <input
+                            type="date"
+                            value={editingForm.created_at}
+                            onChange={(event) => setEditingForm({ ...editingForm, created_at: event.target.value })}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          />
                         </div>
-                        <div className="mt-1 text-xs font-medium text-slate-500">
-                          {movement.created_at ? new Date(movement.created_at).toLocaleDateString() : "Pending date"}
-                          {movement.status ? ` • ${movement.status}` : ""}
+                        <textarea
+                          value={editingForm.note}
+                          rows={2}
+                          onChange={(event) => setEditingForm({ ...editingForm, note: event.target.value })}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                          placeholder="Movement note"
+                        />
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-black text-slate-700"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => saveMovementEdit(movement)}
+                            className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-black text-white"
+                          >
+                            Save
+                          </button>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-black ${movement.type === "deposit" ? "text-emerald-700" : "text-rose-700"}`}>
-                          {movement.type === "deposit" ? "+" : "-"}
-                          {currency || "USD"} {amount.toFixed(2)}
-                        </div>
-                        {movement.note && (
-                          <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
-                            {movement.note}
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-black text-slate-900">
+                            {movement.type === "deposit" ? "Deposit" : "Withdrawal"}
                           </div>
-                        )}
+                          <div className="mt-1 text-xs font-medium text-slate-500">
+                            {movement.created_at ? new Date(movement.created_at).toLocaleDateString() : "Pending date"}
+                            {movement.status ? ` • ${movement.status}` : ""}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-black ${movement.type === "deposit" ? "text-emerald-700" : "text-rose-700"}`}>
+                            {movement.type === "deposit" ? "+" : "-"}
+                            {currency || "USD"} {amount.toFixed(2)}
+                          </div>
+                          {movement.note && (
+                            <div className="mt-1 max-w-xs truncate text-xs text-slate-500">
+                              {movement.note}
+                            </div>
+                          )}
+                          <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditMovement(movement)}
+                              className="rounded-lg border border-blue-300 px-3 py-1 text-[11px] font-black text-blue-700 hover:bg-blue-50"
+                            >
+                              Update
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMovement(movement)}
+                              className="rounded-lg border border-rose-300 px-3 py-1 text-[11px] font-black text-rose-700 hover:bg-rose-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {movement.type === "withdrawal" && typeof balanceBefore === "number" && (
+                    {movement.type === "withdrawal" && typeof balanceBefore === "number" && !isEditing && (
                       <div className="mt-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800">
                         Before withdrawal: {currency || "USD"} {Number(balanceBefore || 0).toFixed(2)}
                       </div>
