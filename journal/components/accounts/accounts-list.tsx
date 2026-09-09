@@ -80,12 +80,20 @@ export function AccountsList({ accounts }: AccountsListProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <Link
-                      href={`/accounts/${account.id}/edit`}
-                      className="text-blue-600 hover:text-blue-700 mr-4"
-                    >
-                      Edit
-                    </Link>
+                    <div className="flex items-center gap-4">
+                      <Link
+                        href={`/accounts/${account.id}/cashflow`}
+                        className="text-emerald-600 hover:text-emerald-700"
+                      >
+                        Deposit / Withdraw
+                      </Link>
+                      <Link
+                        href={`/accounts/${account.id}/edit`}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Edit
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
