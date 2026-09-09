@@ -61,7 +61,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
       const { error: updateError } = await supabase
         .from("trading_accounts")
         .update({
-          current_balance: updatedBalance,
+          current_balance: Number(updatedBalance.toFixed(2)),
         })
         .eq("id", account.id)
         .eq("user_id", user.id);
@@ -70,8 +70,14 @@ export function CashflowForm({ account }: CashflowFormProps) {
         throw updateError;
       }
 
+      const actionLabel = type === "deposit" ? "deposit" : "withdrawal";
+      const actionMessage = `${type === "deposit" ? "Deposit" : "Withdrawal"} recorded for ${account.account_name}. The balance is now ${account.currency || "USD"} ${updatedBalance.toFixed(2)}.`;
+
       router.push("/accounts");
       router.refresh();
+
+      // Keep the UI feedback in memory for the form consumer if needed.
+      console.info(actionMessage);
     } catch (err: any) {
       setError(err.message || "Unable to save cash flow record.");
     } finally {
