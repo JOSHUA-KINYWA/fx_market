@@ -102,58 +102,9 @@ export default async function DashboardPage() {
       }
     }
 
-    // Update account balances after fixing trades
-    for (const account of accountsData) {
-      const accountTrades = tradesData.filter(
-        (t) => t.account_id === account.id && t.status === "closed"
-      );
-      const totalPnL = accountTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
-      const calculatedBalance = (account.initial_balance || 0) + totalPnL;
-
-      if (Math.abs(calculatedBalance - (account.current_balance || 0)) > 0.01) {
-        await supabase
-          .from("trading_accounts")
-          .update({ current_balance: calculatedBalance })
-          .eq("id", account.id);
-      }
-    }
   }
 
-  // Calculate and update account balances based on trades
-  if (accountsData.length > 0) {
-    for (const account of accountsData) {
-      const accountTrades = tradesData.filter(
-        (t) => t.account_id === account.id && t.status === "closed"
-      );
-      const totalPnL = accountTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
-      const calculatedBalance = (account.initial_balance || 0) + totalPnL;
-
-      if (Math.abs(calculatedBalance - (account.current_balance || 0)) > 0.01) {
-        await supabase
-          .from("trading_accounts")
-          .update({ current_balance: calculatedBalance })
-          .eq("id", account.id);
-        
-        // Update the accountsData array for immediate display
-        const accountIndex = accountsData.findIndex(a => a.id === account.id);
-        if (accountIndex !== -1) {
-          accountsData[accountIndex] = {
-            ...accountsData[accountIndex],
-            current_balance: calculatedBalance,
-          };
-        }
-      }
-    }
-  }
-  
-  // Refetch accounts to ensure we have the latest balance data
-  const { data: updatedAccounts } = await supabase
-    .from("trading_accounts")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("is_active", true);
-  
-  const finalAccountsData = updatedAccounts ? serializeArray(updatedAccounts) : accountsData;
+  const finalAccountsData = accountsData;
 
   return (
     <AppLayout>
