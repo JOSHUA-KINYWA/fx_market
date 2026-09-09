@@ -65,7 +65,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
                   Direction
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                  Entry Time
+                  Trade Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                   P&L
@@ -102,7 +102,7 @@ export function RecentTrades({ trades }: RecentTradesProps) {
                       {format(new Date(trade.entry_time), "MMM dd")}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {format(new Date(trade.entry_time), "HH:mm")}
+                      {trade.ny_session || "Session not set"} · {trade.timeframe || "Timeframe not set"}
                     </div>
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm ${getProfitColor(trade.profit_loss)}`}>

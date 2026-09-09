@@ -263,9 +263,10 @@ export function TradingJournalDashboard({
   const exportToCSV = () => {
     const headers = [
       "Date",
-      "Time",
       "Symbol",
       "Side",
+      "NY Session",
+      "Timeframe",
       "Entry",
       "Exit",
       "Position Size",
@@ -277,9 +278,10 @@ export function TradingJournalDashboard({
     ];
     const rows = filteredTrades.map((t) => [
       format(new Date(t.entry_time), "yyyy-MM-dd"),
-      format(new Date(t.entry_time), "HH:mm"),
       t.currency_pair,
       t.direction.toUpperCase(),
+      t.ny_session || "",
+      t.timeframe || "",
       t.entry_price.toString(),
       t.exit_price?.toString() || "",
       t.position_size.toString(),

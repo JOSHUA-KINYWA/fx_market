@@ -94,7 +94,7 @@ export function CashflowForm({ account }: CashflowFormProps) {
         throw ledgerError;
       }
 
-      router.push("/accounts");
+      router.push(`/analytics?accountId=${account.id}`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Unable to save cash flow record.");
@@ -104,126 +104,128 @@ export function CashflowForm({ account }: CashflowFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6">
-      <div className="mb-6 flex items-center justify-between gap-4">
+    <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
         <div>
-          <span className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+          <span className="text-xs font-black uppercase tracking-[0.16em] text-blue-600">
             Account Ledger
           </span>
-          <h1 className="text-3xl font-bold text-slate-900 mt-2">
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
             {type === "deposit" ? "Add Deposit" : "Profit Withdrawal"}
           </h1>
         </div>
         <div className="text-right">
-          <div className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">
             {account.account_name}
           </div>
-          <div className="text-lg font-semibold text-slate-900">
+          <div className="mt-2 text-3xl font-black text-slate-900">
             {account.currency || "USD"} {Number(account.current_balance || 0).toFixed(2)}
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Cash Flow Type
-          </label>
-          <select
-            value={type}
-            onChange={(event) => setType(event.target.value as "deposit" | "withdrawal")}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="deposit">Deposit</option>
-            <option value="withdrawal">Profit Withdrawal</option>
-          </select>
+      <form onSubmit={handleSubmit} className="p-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div>
+            <label className="block text-sm font-black text-slate-700">
+              Cash Flow Type
+            </label>
+            <select
+              value={type}
+              onChange={(event) => setType(event.target.value as "deposit" | "withdrawal")}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            >
+              <option value="deposit">Deposit</option>
+              <option value="withdrawal">Profit Withdrawal</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-slate-700">
+              Amount
+            </label>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              required
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+              placeholder="100.00"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-slate-700">
+              Date
+            </label>
+            <input
+              type="date"
+              required
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-black text-slate-700">
+              Status
+            </label>
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value as "pending" | "completed" | "review")}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+            >
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+              <option value="review">Review</option>
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-black text-slate-700">
+              Purpose / Reason
+            </label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+              placeholder="Profit withdrawal, trading capital, etc."
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-black text-slate-700">
+              Note
+            </label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={3}
+              className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+              placeholder="Optional detail or vendor note"
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Amount
-          </label>
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            required
-            value={amount}
-            onChange={(event) => setAmount(event.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="100.00"
-          />
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => router.push("/accounts")}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? "Saving..." : type === "deposit" ? "Save Deposit" : "Save Profit Withdrawal"}
+          </Button>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Date
-          </label>
-          <input
-            type="date"
-            required
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Status
-          </label>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as "pending" | "completed" | "review")}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="completed">Completed</option>
-            <option value="pending">Pending</option>
-            <option value="review">Review</option>
-          </select>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700">
-            Purpose / Reason
-          </label>
-          <input
-            type="text"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Profit withdrawal, trading capital, etc."
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-700">
-            Note
-          </label>
-          <input
-            type="text"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Optional detail or vendor note"
-          />
-        </div>
-      </div>
-
-      <div className="mt-6 flex items-center justify-end space-x-3">
-        <Button type="button" variant="outline" onClick={() => router.push("/accounts")}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? "Saving..." : type === "deposit" ? "Save Deposit" : "Save Profit Withdrawal"}
-        </Button>
-      </div>
-    </form>
+      </form>
+    </section>
   );
 }

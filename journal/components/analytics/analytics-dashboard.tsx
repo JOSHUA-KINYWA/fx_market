@@ -2,20 +2,41 @@
 
 import { useState, useEffect } from "react";
 import { Database } from "@/types/database.types";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, AreaChart, Area } from "recharts";
 import { createClient } from "@/lib/supabase/client";
 
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
+type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 
 interface AnalyticsDashboardProps {
   trades: Trade[];
+  accounts: Account[];
 }
 
-export function AnalyticsDashboard({ trades }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ trades, accounts }: AnalyticsDashboardProps) {
   const [emotionStats, setEmotionStats] = useState<any[]>([]);
   const [mistakeStats, setMistakeStats] = useState<any[]>([]);
 
   const closedTrades = trades.filter((t) => t.status === "closed");
+
+  const totalPnl = trades.reduce((sum, trade) => sum + Number(trade.profit_loss || 0), 0);
+  const winners = closedTrades.filter((trade) => Number(trade.profit_loss || 0) >= 0);
+  const totalWins = winners.length;
+  const winRate = closedTrades.length > 0 ? (totalWins / closedTrades.length) * 100 : 0;
+  const grossProfit = closedTrades.filter((t) => Number(t.profit_loss || 0) > 0).reduce((sum, trade) => sum + Number(trade.profit_loss || 0), 0);
+  const grossLoss = Math.abs(closedTrades.filter((t) => Number(t.profit_loss || 0) < 0).reduce((sum, trade) => sum + Number(trade.profit_loss || 0), 0));
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
+  const avgR = closedTrades.length > 0
+    ? closedTrades.reduce((sum, trade) => sum + Number(trade.r_multiple || 0), 0) / closedTrades.length
+    : 0;
+
+  const selectedAccountBalances = accounts
+    .filter((account) => account.id && trades.some((trade) => trade.account_id === account.id))
+    .map((account) => ({
+      account: account.account_name,
+      balance: Number(account.current_balance || 0),
+      currency: account.currency || "USD",
+    }));
 
   useEffect(() => {
     loadPsychologyData();
@@ -119,6 +140,28 @@ export function AnalyticsDashboard({ trades }: AnalyticsDashboardProps) {
     return acc;
   }, [] as { trade: number; equity: number; date: string }[]);
 
+  const monthlyPnl = closedTrades.reduce((acc, trade) => {
+    const date = new Date(trade.exit_time || trade.entry_time || trade.created_at || new Date());
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    if (!acc[key]) {
+      acc[key] = { month: key, pnl: 0 };
+    }
+    acc[key].pnl += Number(trade.profit_loss || 0);
+    return acc;
+  }, {} as Record<string, { month: string; pnl: number }>);
+
+  const monthlyCurveData = Object.values(monthlyPnl).map((entry) => ({
+    month: entry.month,
+    pnl: Number(entry.pnl.toFixed(2)),
+  }));
+
+  const accountHealth = accounts.length > 0
+    ? accounts.reduce((acc, account) => {
+        acc.totalBalance += Number(account.current_balance || 0);
+        return acc;
+      }, { totalBalance: 0 })
+    : { totalBalance: 0 };
+
   // Performance by currency pair
   const pairPerformance = closedTrades.reduce((acc, trade) => {
     const pair = trade.currency_pair;
@@ -140,6 +183,35 @@ export function AnalyticsDashboard({ trades }: AnalyticsDashboardProps) {
 
   return (
     <div className="space-y-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: "Net P&L", value: `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}`, tone: totalPnl >= 0 ? "emerald" : "rose" },
+          { label: "Win Rate", value: `${winRate.toFixed(1)}%`, tone: "blue" },
+          { label: "Profit Factor", value: profitFactor.toFixed(2), tone: "violet" },
+          { label: "Avg R", value: avgR.toFixed(2), tone: "amber" },
+        ].map((metric) => (
+          <div key={metric.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">{metric.label}</div>
+            <div className={`mt-2 text-3xl font-black ${metric.tone === "emerald" ? "text-emerald-700" : metric.tone === "rose" ? "text-rose-700" : metric.tone === "blue" ? "text-blue-700" : metric.tone === "violet" ? "text-violet-700" : "text-amber-700"}`}>{metric.value}</div>
+          </div>
+        ))}
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Closed Trades</div>
+          <div className="mt-2 text-3xl font-black text-slate-900">{closedTrades.length}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Accounts Linked</div>
+          <div className="mt-2 text-3xl font-black text-slate-900">{accounts.length}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Account Balance</div>
+          <div className="mt-2 text-3xl font-black text-slate-900">{accountHealth.totalBalance.toFixed(2)}</div>
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Equity Curve</h3>
@@ -159,6 +231,25 @@ export function AnalyticsDashboard({ trades }: AnalyticsDashboardProps) {
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly P&amp;L Curve</h3>
+          {monthlyCurveData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={monthlyCurveData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Area type="monotone" dataKey="pnl" stroke="#10B981" fill="#B7F7D4" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-gray-500 text-center py-12">No monthly curve to display</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Performance by Pair</h3>
           {pairData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -172,6 +263,22 @@ export function AnalyticsDashboard({ trades }: AnalyticsDashboardProps) {
             </ResponsiveContainer>
           ) : (
             <p className="text-gray-500 text-center py-12">No data to display</p>
+          )}
+        </div>
+
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Account Balance Map</h3>
+          {selectedAccountBalances.length > 0 ? (
+            <div className="space-y-3">
+              {selectedAccountBalances.map((account) => (
+                <div key={account.account} className="flex items-center justify-between rounded-xl border border-slate-100 px-4 py-3">
+                  <span className="font-semibold text-slate-800">{account.account}</span>
+                  <span className="font-black text-slate-900">{account.currency} {account.balance.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-12">No account balance data</p>
           )}
         </div>
       </div>

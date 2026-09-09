@@ -9,12 +9,13 @@ type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 interface AnalyticsFiltersProps {
   trades: Trade[];
   accounts: Account[];
+  initialAccountId?: string;
   onFiltered: (filtered: Trade[]) => void;
 }
 
-export function AnalyticsFilters({ trades, accounts, onFiltered }: AnalyticsFiltersProps) {
+export function AnalyticsFilters({ trades, accounts, initialAccountId, onFiltered }: AnalyticsFiltersProps) {
   const [filters, setFilters] = useState({
-    accountId: "",
+    accountId: initialAccountId || "",
     dateRange: "all", // all, today, week, month, year
     startDate: "",
     endDate: "",

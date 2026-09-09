@@ -6,7 +6,13 @@ import { DisciplineEvaluation } from "@/components/analytics/discipline-evaluati
 import { serializeArray } from "@/lib/utils/serialize";
 import { calculateTradeMetrics } from "@/lib/utils/trade-calculations";
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ accountId?: string }>;
+}) {
+  const selectedAccountId = (await searchParams)?.accountId || "";
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -88,7 +94,7 @@ export default async function AnalyticsPage() {
           </p>
         </div>
 
-        <AnalyticsDashboardWithFilters trades={tradesData} accounts={accountsData} />
+        <AnalyticsDashboardWithFilters trades={tradesData} accounts={accountsData} initialAccountId={selectedAccountId} />
         
         <div className="mt-6">
           <DisciplineEvaluation trades={tradesData} />

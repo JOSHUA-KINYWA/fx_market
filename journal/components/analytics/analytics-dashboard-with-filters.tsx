@@ -11,9 +11,10 @@ type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 interface AnalyticsDashboardWithFiltersProps {
   trades: Trade[];
   accounts: Account[];
+  initialAccountId?: string;
 }
 
-export function AnalyticsDashboardWithFilters({ trades, accounts }: AnalyticsDashboardWithFiltersProps) {
+export function AnalyticsDashboardWithFilters({ trades, accounts, initialAccountId }: AnalyticsDashboardWithFiltersProps) {
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>(trades);
 
   useEffect(() => {
@@ -25,9 +26,10 @@ export function AnalyticsDashboardWithFilters({ trades, accounts }: AnalyticsDas
       <AnalyticsFilters
         trades={trades}
         accounts={accounts}
+        initialAccountId={initialAccountId}
         onFiltered={setFilteredTrades}
       />
-      <AnalyticsDashboard trades={filteredTrades} />
+      <AnalyticsDashboard trades={filteredTrades} accounts={accounts} />
     </>
   );
 }

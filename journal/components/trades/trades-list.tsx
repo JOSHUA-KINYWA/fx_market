@@ -74,12 +74,6 @@ export function TradesList({ trades, accounts }: TradesListProps) {
                 Direction
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Entry
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Exit
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Size
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -115,14 +109,6 @@ export function TradesList({ trades, accounts }: TradesListProps) {
                     >
                       {trade.direction.toUpperCase()}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {Number(trade.entry_price).toFixed(5)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {trade.exit_price
-                      ? Number(trade.exit_price).toFixed(5)
-                      : "-"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {Number(trade.position_size).toFixed(2)}
