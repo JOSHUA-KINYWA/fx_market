@@ -26,18 +26,23 @@ export function AccountLedgerSummary({
   currentBalance,
   movements,
 }: AccountLedgerSummaryProps) {
-  const depositTotal = movements
+  const visibleMovements = movements.filter((movement) => {
+    const sampleText = `${movement.note || ""}`.toLowerCase();
+    return !sampleText.includes("sort account issues") && !sampleText.includes("paid for account");
+  });
+
+  const depositTotal = visibleMovements
     .filter((m) => m.type === "deposit")
     .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
-  const withdrawalTotal = movements
+  const withdrawalTotal = visibleMovements
     .filter((m) => m.type === "withdrawal")
     .reduce((sum, m) => sum + Number(m.amount || 0), 0);
 
-  const completedMovements = movements.filter((m) => m.status === "completed").length;
-  const pendingMovements = movements.filter((m) => m.status === "pending").length;
+  const completedMovements = visibleMovements.filter((m) => m.status === "completed").length;
+  const pendingMovements = visibleMovements.filter((m) => m.status === "pending").length;
 
-  const movementsByCreated = [...movements].sort((a, b) => {
+  const movementsByCreated = [...visibleMovements].sort((a, b) => {
     const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
     const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
     return aTime - bTime;
@@ -205,17 +210,17 @@ export function AccountLedgerSummary({
             Recent Ledger Activity
           </h3>
           <span className="text-xs font-semibold text-slate-500">
-            {movements.length} {movements.length === 1 ? "record" : "records"}
+            {visibleMovements.length} {visibleMovements.length === 1 ? "record" : "records"}
           </span>
         </div>
         <div className="mt-4">
-          {movements.length === 0 ? (
+          {visibleMovements.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500">
               No ledger movements yet.
             </div>
           ) : (
             <div className="space-y-3">
-              {movements.slice(0, 5).map((movement) => {
+              {visibleMovements.slice(0, 5).map((movement) => {
                 const amount = Number(movement.amount || 0);
                 const balanceBefore = refundableMovementBalanceBeforeById.get(movement.id);
 
