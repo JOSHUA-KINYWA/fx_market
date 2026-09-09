@@ -521,6 +521,41 @@ export function TradingJournalDashboard({
             )}
           </div>
 
+          <div className="mb-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-600 bg-slate-700 p-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                Active Account
+              </div>
+              <div className="mt-2 text-lg font-black text-white">
+                {selectedAccount?.account_name || "All Accounts"}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-600 bg-slate-700 p-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                Balance
+              </div>
+              <div className="mt-2 text-lg font-black text-emerald-300">
+                ${Number(selectedAccount?.current_balance || 0).toFixed(2)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-600 bg-slate-700 p-4">
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={selectedAccountId ? `/accounts/${selectedAccountId}/cashflow` : "/accounts"}
+                  className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black uppercase text-white hover:bg-emerald-500 transition"
+                >
+                  Ledger
+                </Link>
+                <Link
+                  href={selectedAccountId ? `/analytics?accountId=${selectedAccountId}` : "/analytics"}
+                  className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 transition"
+                >
+                  Analytics
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2 mb-4">
             <button
               onClick={() => setActiveTab("overview")}

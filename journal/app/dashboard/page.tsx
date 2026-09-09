@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -168,6 +169,36 @@ export default async function DashboardPage() {
           </div>
 
           <TradingPsychologyQuotes />
+
+          <section className="mb-6 rounded-2xl border border-slate-700 bg-slate-800/80 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  Account Operations
+                </div>
+                <div className="mt-2 text-sm font-semibold text-slate-200">
+                  {finalAccountsData.length} active account{finalAccountsData.length === 1 ? "" : "s"}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {finalAccountsData.slice(0, 3).map((account) => (
+                  <Link
+                    key={account.id}
+                    href={`/accounts/${account.id}/cashflow`}
+                    className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black uppercase text-white hover:bg-emerald-500 transition"
+                  >
+                    {account.account_name || "Ledger"}
+                  </Link>
+                ))}
+                <Link
+                  href="/analytics"
+                  className="inline-flex items-center rounded-lg bg-blue-600 px-3 py-2 text-xs font-black uppercase text-white hover:bg-blue-500 transition"
+                >
+                  Analytics
+                </Link>
+              </div>
+            </div>
+          </section>
           
           <DashboardStats trades={tradesData} accounts={finalAccountsData} />
           
