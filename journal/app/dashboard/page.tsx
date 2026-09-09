@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppLayout } from "@/components/layout/app-layout";
@@ -159,23 +158,13 @@ export default async function DashboardPage() {
     <AppLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Analytics Dashboard
-              </h1>
-              <p className="text-slate-400">
-                Track your trading performance and improve your strategy
-              </p>
-            </div>
-            {finalAccountsData.length > 0 && (
-              <Link
-                href={`/accounts/${finalAccountsData[0].id}/cashflow`}
-                className="inline-flex items-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-400"
-              >
-                Deposit / Withdraw
-              </Link>
-            )}
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Analytics Dashboard
+            </h1>
+            <p className="text-slate-400">
+              Track your trading performance and improve your strategy
+            </p>
           </div>
 
           <TradingPsychologyQuotes />
