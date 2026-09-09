@@ -100,14 +100,6 @@ export function TradeDetail({
               </span>
             </p>
           </div>
-          {trade.exit_price && (
-            <div>
-              <label className="block text-sm font-medium text-slate-500">Exit Price</label>
-              <p className="mt-1 text-lg font-semibold text-slate-900">
-                {Number(trade.exit_price).toFixed(5)}
-              </p>
-            </div>
-          )}
           <div>
             <label className="block text-sm font-medium text-slate-500">Profit & Loss</label>
             <p className={`mt-1 text-2xl font-bold ${getProfitColor(trade.profit_loss)}`}>

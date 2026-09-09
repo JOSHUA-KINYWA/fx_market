@@ -6,7 +6,6 @@ export interface TradeFormValidationResult {
 export function validateTradeForm(values: {
   account_id: string;
   currency_pair: string;
-  exit_price: string;
   position_size: string;
   stop_loss: string;
   take_profit: string;
@@ -18,13 +17,6 @@ export function validateTradeForm(values: {
 
   if (!values.currency_pair.trim()) {
     return { isValid: false, error: "Please enter a currency pair." };
-  }
-
-  if (values.exit_price) {
-    const exitPrice = Number(values.exit_price);
-    if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
-      return { isValid: false, error: "Exit price must be greater than zero." };
-    }
   }
 
   const positionSize = Number(values.position_size);

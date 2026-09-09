@@ -49,7 +49,6 @@ export function TradeForm({
     entry_date: initialData?.entry_time
       ? new Date(initialData.entry_time).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10),
-    exit_price: initialData?.exit_price?.toString() || "",
     position_size: initialData?.position_size?.toString() || "",
     stop_loss: initialData?.stop_loss?.toString() || "",
     take_profit: initialData?.take_profit?.toString() || "",
@@ -120,7 +119,6 @@ export function TradeForm({
       const validation = validateTradeForm({
         account_id: formData.account_id,
         currency_pair: formData.currency_pair,
-        exit_price: formData.exit_price,
         position_size: formData.position_size,
         stop_loss: formData.stop_loss,
         take_profit: formData.take_profit,
@@ -143,7 +141,7 @@ export function TradeForm({
 
       const metrics = calculateTradeMetrics({
         entry_price: null,
-        exit_price: formData.exit_price ? Number.parseFloat(formData.exit_price) : null,
+        exit_price: null,
         stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
         take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
         direction: formData.direction,
@@ -160,7 +158,6 @@ export function TradeForm({
         currency_pair: formData.currency_pair.toUpperCase(),
         direction: formData.direction,
         entry_time: new Date(`${formData.entry_date}T12:00:00`).toISOString(),
-        exit_price: formData.exit_price ? Number.parseFloat(formData.exit_price) : null,
         position_size: Number.parseFloat(formData.position_size),
         stop_loss: formData.stop_loss ? Number.parseFloat(formData.stop_loss) : null,
         take_profit: formData.take_profit ? Number.parseFloat(formData.take_profit) : null,
@@ -301,23 +298,6 @@ export function TradeForm({
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Exit Price
-          </label>
-          <input
-            type="number"
-            step="0.00001"
-            min="0"
-            value={formData.exit_price}
-            onChange={(e) =>
-              setFormData({ ...formData, exit_price: e.target.value })
-            }
-            placeholder="Price where you exited"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-          />
         </div>
 
         <div>
