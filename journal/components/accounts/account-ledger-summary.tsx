@@ -42,10 +42,7 @@ export function AccountLedgerSummary({
     created_at: new Date().toISOString().slice(0, 10),
   });
 
-  const visibleMovements = movementRows.filter((movement) => {
-    const sampleText = `${movement.note || ""}`.toLowerCase();
-    return !sampleText.includes("sort account issues") && !sampleText.includes("paid for account");
-  });
+  const visibleMovements = movementRows;
 
   const handleDeleteMovement = async (movement: LedgerMovement) => {
     if (!confirm("Delete this deposit or withdrawal entry from the ledger?")) {

@@ -59,20 +59,6 @@ export function CashflowForm({ account }: CashflowFormProps) {
     setLoading(true);
 
     try {
-      const balancePayload = {
-        current_balance: Number(updatedBalance.toFixed(2)),
-      };
-
-      const { error: updateError } = await supabase
-        .from("trading_accounts")
-        .update(balancePayload)
-        .eq("id", account.id)
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
       const ledgerPayload = {
         user_id: user.id,
         account_id: account.id,
@@ -91,6 +77,20 @@ export function CashflowForm({ account }: CashflowFormProps) {
 
       if (ledgerError) {
         throw ledgerError;
+      }
+
+      const balancePayload = {
+        current_balance: Number(updatedBalance.toFixed(2)),
+      };
+
+      const { error: updateError } = await supabase
+        .from("trading_accounts")
+        .update(balancePayload)
+        .eq("id", account.id)
+        .eq("user_id", user.id);
+
+      if (updateError) {
+        throw updateError;
       }
 
       router.push(`/analytics?accountId=${account.id}`);

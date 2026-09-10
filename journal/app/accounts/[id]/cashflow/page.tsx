@@ -38,11 +38,6 @@ export default async function AccountCashflowPage({
     .order("created_at", { ascending: false })
     .limit(20);
 
-  const safeMovements = (movements || []).filter((movement) => {
-    const sampleText = `${movement.note || ""} ${movement.reason || ""}`.toLowerCase();
-    return !sampleText.includes("sort account issues") && !sampleText.includes("paid for account");
-  });
-
   return (
     <AppLayout>
       <div className="px-4 py-6 sm:px-0 space-y-6">
@@ -52,7 +47,7 @@ export default async function AccountCashflowPage({
           currency={account.currency || "USD"}
           currentBalance={Number(account.current_balance || 0)}
           movements={
-            safeMovements.map((movement) => ({
+            (movements || []).map((movement) => ({
               id: movement.id,
               type: movement.type as "deposit" | "withdrawal",
               amount: Number(movement.amount || 0),
