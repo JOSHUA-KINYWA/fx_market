@@ -43,9 +43,17 @@ export default async function DashboardPage() {
     .in("account_id", accountIds.length > 0 ? accountIds : [null])
     .order("entry_time", { ascending: false });
 
+  const { data: cashflows } = await supabase
+    .from("account_cashflows")
+    .select("*")
+    .eq("user_id", user.id)
+    .in("account_id", accountIds.length > 0 ? accountIds : [null])
+    .order("created_at", { ascending: false });
+
   // Convert to plain objects to avoid read-only issues
   const tradesData = trades ? serializeArray(trades) : [];
   const accountsData = accounts ? serializeArray(accounts) : [];
+  const cashflowData = cashflows ? serializeArray(cashflows) : [];
 
   // Update trades that are missing metrics or have incorrect status
   if (trades && trades.length > 0) {
@@ -149,7 +157,7 @@ export default async function DashboardPage() {
             </div>
           </section>
           
-          <DashboardStats trades={tradesData} accounts={finalAccountsData} />
+          <DashboardStats trades={tradesData} accounts={finalAccountsData} cashflows={cashflowData} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <DashboardCharts trades={tradesData} />

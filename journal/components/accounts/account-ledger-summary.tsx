@@ -189,9 +189,9 @@ export function AccountLedgerSummary({
 
     for (const movement of latestToOldest) {
       if (movement.type === "deposit") {
-        balance -= Number(movement.amount || 0);
-      } else {
         balance += Number(movement.amount || 0);
+      } else {
+        balance -= Number(movement.amount || 0);
       }
 
       points.push({

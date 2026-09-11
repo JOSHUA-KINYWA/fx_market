@@ -5,12 +5,19 @@ import { format } from "date-fns";
 
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 
+interface CashflowRow {
+  id?: string;
+  type?: "deposit" | "withdrawal" | null;
+  amount?: number | string | null;
+}
+
 interface DashboardStatsProps {
   readonly trades: Trade[];
   readonly accounts: Database["public"]["Tables"]["trading_accounts"]["Row"][];
+  readonly cashflows?: CashflowRow[];
 }
 
-export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
+export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardStatsProps) {
   // Limit dashboard metrics to the supported instruments.
   const supportedPairTrades = trades.filter((t) => {
     const pair = t.currency_pair?.toUpperCase() || "";
@@ -25,6 +32,16 @@ export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
   const winningTrades = closedTrades.filter((t) => (t.profit_loss || 0) > 0);
   const losingTrades = closedTrades.filter((t) => (t.profit_loss || 0) < 0);
   const breakevenTrades = closedTrades.filter((t) => (t.profit_loss || 0) === 0);
+
+  const depositTotal = cashflows
+    .filter((item) => item.type === "deposit")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const withdrawalTotal = cashflows
+    .filter((item) => item.type === "withdrawal")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  const statementCashNet = depositTotal - withdrawalTotal;
 
   const totalProfit = closedTrades.reduce(
     (sum, t) => sum + (t.profit_loss || 0),
@@ -194,10 +211,31 @@ export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
     },
     {
       name: "Total Trades",
-      value: supportedPairTrades.length.toString(),
+      value: closedTrades.length.toString(),
       change: `${closedTrades.length} closed`,
       trend: "neutral" as const,
       color: "text-white",
+    },
+    {
+      name: "Deposits",
+      value: `$${depositTotal.toFixed(2)}`,
+      change: "statement inflows",
+      trend: "neutral" as const,
+      color: "text-emerald-400",
+    },
+    {
+      name: "Withdrawals",
+      value: `$${withdrawalTotal.toFixed(2)}`,
+      change: "statement outflows",
+      trend: "neutral" as const,
+      color: "text-rose-400",
+    },
+    {
+      name: "Cashflow Net",
+      value: `${statementCashNet >= 0 ? "+" : "-"}$${Math.abs(statementCashNet).toFixed(2)}`,
+      change: statementCashNet >= 0 ? "net inflow" : "net outflow",
+      trend: statementCashNet >= 0 ? "up" : "down",
+      color: statementCashNet >= 0 ? "text-emerald-400" : "text-rose-400",
     },
     {
       name: "Profit Factor",
@@ -324,8 +362,8 @@ export function DashboardStats({ trades, accounts }: DashboardStatsProps) {
   return (
     <div className="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-white mb-1">US30 Performance Metrics</h2>
-        <p className="text-sm text-slate-400">Trading statistics for US30 only</p>
+        <h2 className="text-xl font-bold text-white mb-1">Performance Metrics</h2>
+        <p className="text-sm text-slate-400">Trading statistics across supported instruments</p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {stats.map((stat) => (
