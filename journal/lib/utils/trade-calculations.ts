@@ -63,36 +63,3 @@ export function calculateTradeMetrics(trade: {
   return metrics;
 }
 
-export async function updateAccountBalance(
-  supabase: any,
-  accountId: string
-): Promise<void> {
-  // Get account
-  const { data: account } = await supabase
-    .from("trading_accounts")
-    .select("initial_balance")
-    .eq("id", accountId)
-    .single();
-
-  if (!account) return;
-
-  // Get all closed trades for this account
-  const { data: allTrades } = await supabase
-    .from("trades")
-    .select("profit_loss")
-    .eq("account_id", accountId)
-    .eq("status", "closed");
-
-  const totalPnL =
-    allTrades?.reduce(
-      (sum: number, t: { profit_loss: number | null }) => sum + (t.profit_loss ?? 0),
-      0
-    ) ?? 0;
-  const newBalance = (account.initial_balance || 0) + totalPnL;
-
-  // Update account balance
-  await supabase
-    .from("trading_accounts")
-    .update({ current_balance: newBalance })
-    .eq("id", accountId);
-}

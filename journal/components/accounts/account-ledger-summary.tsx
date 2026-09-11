@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { applyBalanceDelta } from "@/lib/utils/broker-statement";
 
 interface LedgerMovement {
   id: string;
@@ -59,20 +60,18 @@ export function AccountLedgerSummary({
         throw deleteError;
       }
 
-      const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
-      const nextBalance = Number((balance - oldEffect).toFixed(2));
-
-      const { error: accountError } = await supabase
-        .from("trading_accounts")
-        .update({ current_balance: nextBalance })
-        .eq("id", accountId);
-
-      if (accountError) {
-        throw accountError;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
+        const nextBalance = await applyBalanceDelta(supabase, accountId, user.id, -oldEffect);
+        if (typeof nextBalance === "number") {
+          setBalance(nextBalance);
+        }
       }
 
       setMovementRows((rows) => rows.filter((row) => row.id !== movement.id));
-      setBalance(nextBalance);
       router.refresh();
     } catch (error) {
       console.error("Failed to delete ledger movement:", error);
@@ -99,10 +98,6 @@ export function AccountLedgerSummary({
     }
 
     try {
-      const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
-      const newEffect = editingForm.type === "deposit" ? amount : -amount;
-      const nextBalance = Number((balance - oldEffect + newEffect).toFixed(2));
-
       const { error: updateError } = await supabase
         .from("account_cashflows")
         .update({
@@ -110,6 +105,7 @@ export function AccountLedgerSummary({
           amount: Number(amount.toFixed(2)),
           note: editingForm.note,
           status: editingForm.status,
+          posted_at: `${editingForm.created_at}T00:00:00.000Z`,
           created_at: `${editingForm.created_at}T00:00:00.000Z`,
         })
         .eq("id", movement.id);
@@ -118,13 +114,17 @@ export function AccountLedgerSummary({
         throw updateError;
       }
 
-      const { error: accountError } = await supabase
-        .from("trading_accounts")
-        .update({ current_balance: nextBalance })
-        .eq("id", accountId);
-
-      if (accountError) {
-        throw accountError;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      let nextBalance = balance;
+      if (user) {
+        const oldEffect = movement.type === "deposit" ? Number(movement.amount || 0) : -Number(movement.amount || 0);
+        const newEffect = editingForm.type === "deposit" ? amount : -amount;
+        const synced = await applyBalanceDelta(supabase, accountId, user.id, newEffect - oldEffect);
+        if (typeof synced === "number") {
+          nextBalance = synced;
+        }
       }
 
       const updatedMovement = {

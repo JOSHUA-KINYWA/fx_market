@@ -2,6 +2,8 @@
 
 import { Database } from "@/types/database.types";
 import { format } from "date-fns";
+import { cashflowTotals } from "@/lib/utils/account-ledger";
+import { isAfterStatement, type BrokerStatementSnapshot } from "@/lib/utils/broker-statement";
 
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
 
@@ -9,15 +11,19 @@ interface CashflowRow {
   id?: string;
   type?: "deposit" | "withdrawal" | null;
   amount?: number | string | null;
+  status?: string | null;
+  posted_at?: string | null;
+  created_at?: string | null;
 }
 
 interface DashboardStatsProps {
   readonly trades: Trade[];
   readonly accounts: Database["public"]["Tables"]["trading_accounts"]["Row"][];
   readonly cashflows?: CashflowRow[];
+  readonly brokerStatement?: BrokerStatementSnapshot | null;
 }
 
-export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardStatsProps) {
+export function DashboardStats({ trades, accounts, cashflows = [], brokerStatement = null }: DashboardStatsProps) {
   // Limit dashboard metrics to the supported instruments.
   const supportedPairTrades = trades.filter((t) => {
     const pair = t.currency_pair?.toUpperCase() || "";
@@ -33,20 +39,22 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
   const losingTrades = closedTrades.filter((t) => (t.profit_loss || 0) < 0);
   const breakevenTrades = closedTrades.filter((t) => (t.profit_loss || 0) === 0);
 
-  const depositTotal = cashflows
-    .filter((item) => item.type === "deposit")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const { deposits: ledgerDeposits, withdrawals: ledgerWithdrawals, net: ledgerCashNet } = cashflowTotals(cashflows);
+  const laterTrades = brokerStatement
+    ? closedTrades.filter((trade) => isAfterStatement(trade.exit_time || trade.entry_time, brokerStatement.asOf))
+    : closedTrades;
+  const laterPnl = laterTrades.reduce((sum, trade) => sum + (trade.profit_loss || 0), 0);
+  const laterCashflows = brokerStatement
+    ? cashflows.filter((item) => isAfterStatement(item.posted_at || item.created_at, brokerStatement.asOf))
+    : [];
+  const laterCash = cashflowTotals(laterCashflows);
 
-  const withdrawalTotal = cashflows
-    .filter((item) => item.type === "withdrawal")
-    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const depositTotal = brokerStatement ? brokerStatement.deposits + laterCash.deposits : ledgerDeposits;
+  const withdrawalTotal = brokerStatement ? brokerStatement.withdrawals + laterCash.withdrawals : ledgerWithdrawals;
+  const statementCashNet = brokerStatement ? brokerStatement.deposits - brokerStatement.withdrawals + laterCash.net : ledgerCashNet;
 
-  const statementCashNet = depositTotal - withdrawalTotal;
-
-  const totalProfit = closedTrades.reduce(
-    (sum, t) => sum + (t.profit_loss || 0),
-    0
-  );
+  const journalProfit = closedTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
+  const totalProfit = brokerStatement ? brokerStatement.realisedPnl + laterPnl : journalProfit;
   const totalWins = winningTrades.reduce(
     (sum, t) => sum + (t.profit_loss || 0),
     0
@@ -118,8 +126,8 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
   // Calculate starting and current capital
   const startingCapital = accounts.reduce((sum, a) => sum + (a.initial_balance || 0), 0);
   const currentCapital = accounts.reduce((sum, a) => sum + (a.current_balance || 0), 0);
-  const totalReturn = startingCapital > 0 
-    ? (((currentCapital - startingCapital) / startingCapital) * 100).toFixed(2)
+  const totalReturn = startingCapital > 0
+    ? ((totalProfit / startingCapital) * 100).toFixed(2)
     : "0.00";
 
   const totalBalance = accounts.reduce(
@@ -187,11 +195,13 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
         )
       : null;
   const worstMonth =
-    monthEntries.length > 0
+    monthEntries.length > 1
       ? monthEntries.reduce((worst, curr) =>
           curr[1] < worst[1] ? curr : worst
         )
-      : null;
+      : monthEntries.length === 1 && monthEntries[0][1] < 0
+        ? monthEntries[0]
+        : null;
 
   const stats = [
     {
@@ -211,8 +221,8 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
     },
     {
       name: "Total Trades",
-      value: closedTrades.length.toString(),
-      change: `${closedTrades.length} closed`,
+      value: brokerStatement ? String(brokerStatement.closedTrades + laterTrades.length) : closedTrades.length.toString(),
+      change: brokerStatement ? `${brokerStatement.closedTrades} broker + ${laterTrades.length} after` : `${closedTrades.length} closed`,
       trend: "neutral" as const,
       color: "text-white",
     },
@@ -320,7 +330,7 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
     worstDay && {
       name: "Worst Day",
       value: worstDay[0],
-      change: `$${worstDay[1].toFixed(2)} P&L`,
+      change: `${worstDay[1] >= 0 ? "" : "-"}$${Math.abs(worstDay[1]).toFixed(2)} P&L`,
       trend: worstDay[1] >= 0 ? "up" : "down",
       icon: "📆",
       color: "text-red-600",
@@ -363,7 +373,11 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
     <div className="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
       <div className="mb-4">
         <h2 className="text-xl font-bold text-white mb-1">Performance Metrics</h2>
-        <p className="text-sm text-slate-400">Trading statistics across supported instruments</p>
+        <p className="text-sm text-slate-400">
+          {brokerStatement
+            ? `Tied to ${brokerStatement.label || "broker statement"}; new manual trades add on top`
+            : "Trading statistics across supported instruments"}
+        </p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         {stats.map((stat) => (
@@ -401,7 +415,7 @@ export function DashboardStats({ trades, accounts, cashflows = [] }: DashboardSt
             worstDay && {
               name: "Worst Day",
               value: worstDay[0],
-              change: `$${worstDay[1].toFixed(2)} P&L`,
+              change: `${worstDay[1] >= 0 ? "" : "-"}$${Math.abs(worstDay[1]).toFixed(2)} P&L`,
               color: worstDay[1] >= 0 ? "text-green-400" : "text-red-400",
             },
             bestMonth && {

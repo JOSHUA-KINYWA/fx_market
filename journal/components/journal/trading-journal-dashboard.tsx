@@ -100,8 +100,8 @@ export function TradingJournalDashboard({
     if (account) {
       setAccountSettings((prev) => ({
         ...prev,
-        startingCapital: account.initial_balance || prev.startingCapital,
-        currentCapital: account.current_balance || prev.currentCapital,
+        startingCapital: Number(account.initial_balance || 0),
+        currentCapital: Number(account.current_balance || 0),
       }));
     }
   }, [selectedAccountId, tradeFilters, trades, accounts]);
@@ -120,17 +120,6 @@ export function TradingJournalDashboard({
   useEffect(() => {
     loadSettings();
   }, [selectedAccountId]);
-
-  useEffect(() => {
-    if (filteredTrades.length > 0) {
-      const totalPnL = filteredTrades.reduce((sum, t) => sum + (t.profit_loss || 0), 0);
-      const calculatedCapital = accountSettings.startingCapital + totalPnL;
-      
-      if (Math.abs(calculatedCapital - accountSettings.currentCapital) > 0.01) {
-        setAccountSettings((prev) => ({ ...prev, currentCapital: calculatedCapital }));
-      }
-    }
-  }, [filteredTrades, accountSettings.startingCapital]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -204,8 +193,8 @@ export function TradingJournalDashboard({
       setAccountSettings({
         ...accountSettings,
         ...loadedSettings,
-        startingCapital: selectedAccount?.initial_balance ?? loadedSettings.startingCapital ?? 0,
-        currentCapital: selectedAccount?.current_balance ?? loadedSettings.currentCapital ?? 0,
+        startingCapital: Number(selectedAccount?.initial_balance ?? loadedSettings.startingCapital ?? 0),
+        currentCapital: Number(selectedAccount?.current_balance ?? loadedSettings.currentCapital ?? 0),
       });
     } catch (error: unknown) {
       console.error("Failed to load settings:", error instanceof Error ? error.message : error);
@@ -229,7 +218,11 @@ export function TradingJournalDashboard({
 
       const currentPrefs = (existing?.preferences || {}) as Record<string, unknown>;
       const accountSettingsById = (currentPrefs.accountSettingsById || {}) as Record<string, AccountSettings>;
-      accountSettingsById[settingsKey] = settings;
+      accountSettingsById[settingsKey] = {
+        ...settings,
+        startingCapital: Number(selectedAccount?.initial_balance || settings.startingCapital || 0),
+        currentCapital: Number(selectedAccount?.current_balance || settings.currentCapital || 0),
+      };
 
       const settingsData = {
         user_id: user.id,
@@ -376,11 +369,7 @@ export function TradingJournalDashboard({
 
   const totalReturn =
     accountSettings.startingCapital > 0
-      ? (
-          ((accountSettings.currentCapital - accountSettings.startingCapital) /
-            accountSettings.startingCapital) *
-          100
-        ).toFixed(2)
+      ? ((totalPnL / accountSettings.startingCapital) * 100).toFixed(2)
       : "0.00";
 
   const uniqueDays = [...new Set(closedTrades.map((t) => format(new Date(t.exit_time || t.entry_time), "yyyy-MM-dd")))].length;

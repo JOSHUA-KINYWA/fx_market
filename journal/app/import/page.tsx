@@ -26,7 +26,7 @@ export default async function ImportPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Import Trades</h1>
           <p className="mt-2 text-gray-600">
-            Upload CSV files from your trading platform
+            Upload a broker statement CSV (Deals + Transactions/Summary). The journal keeps every fill and rebuilds balance from starting capital, deposits, withdrawals, and closed P/L so withdrawals do not vanish later.
           </p>
         </div>
 

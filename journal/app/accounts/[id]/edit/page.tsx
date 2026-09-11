@@ -48,6 +48,7 @@ export default async function EditAccountPage({
             account_type: account.account_type || "demo",
             currency: account.currency || "USD",
             initial_balance: account.initial_balance?.toString() || "0",
+            current_balance: account.current_balance?.toString() || "0",
             is_active: account.is_active,
           }}
         />

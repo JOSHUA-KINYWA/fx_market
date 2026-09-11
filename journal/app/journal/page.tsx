@@ -42,10 +42,7 @@ export default async function JournalPage() {
   // Convert to plain objects to avoid read-only issues
   const tradesData = trades ? serializeArray(trades) : [];
   const accountsData = accounts ? serializeArray(accounts) : [];
-
-  // Keep the persisted account balance source from the account cashflow ledger.
-  // Do not derive current_balance from trades in this route, or it will overwrite a
-  // withdrawal/deposit movement and show a stale balance such as 112 after a withdrawal.
+  const activeAccountWithLedger = accountsData.find((account) => account.id === activeAccount?.id) || accountsData[0] || null;
 
   // Update trades that are missing metrics or have incorrect status
   if (trades && trades.length > 0) {
@@ -107,7 +104,7 @@ export default async function JournalPage() {
         trades={tradesData}
         accounts={accountsData}
         profile={profile}
-        activeAccount={activeAccount}
+        activeAccount={activeAccountWithLedger}
       />
     </AppLayout>
   );

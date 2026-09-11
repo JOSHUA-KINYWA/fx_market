@@ -8,6 +8,7 @@ import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
 import { TradingPsychologyQuotes } from "@/components/trades/trading-psychology-quotes";
 import { serializeArray } from "@/lib/utils/serialize";
 import { calculateTradeMetrics } from "@/lib/utils/trade-calculations";
+import { ensureBrokerStatement, readBrokerSnapshot } from "@/lib/utils/broker-statement";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -53,7 +54,46 @@ export default async function DashboardPage() {
   // Convert to plain objects to avoid read-only issues
   const tradesData = trades ? serializeArray(trades) : [];
   const accountsData = accounts ? serializeArray(accounts) : [];
-  const cashflowData = cashflows ? serializeArray(cashflows) : [];
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const prefs = (settings?.preferences || {}) as Record<string, unknown>;
+  const primaryAccount = accountsData[0];
+  if (primaryAccount) {
+    await ensureBrokerStatement(supabase, primaryAccount.id, user.id, prefs);
+  }
+
+  const { data: refreshedAccount } = primaryAccount
+    ? await supabase
+        .from("trading_accounts")
+        .select("*")
+        .eq("id", primaryAccount.id)
+        .single()
+    : { data: null };
+
+  const { data: refreshedCashflows } = await supabase
+    .from("account_cashflows")
+    .select("*")
+    .eq("user_id", user.id)
+    .in("account_id", accountIds.length > 0 ? accountIds : [null])
+    .order("created_at", { ascending: false });
+
+  const { data: refreshedSettings } = await supabase
+    .from("user_settings")
+    .select("preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const reconciledAccounts = accountsData.map((account) =>
+    refreshedAccount && account.id === refreshedAccount.id ? serializeArray([refreshedAccount])[0] : account
+  );
+  const finalCashflowData = refreshedCashflows ? serializeArray(refreshedCashflows) : (cashflows ? serializeArray(cashflows) : []);
+  const brokerStatement = primaryAccount
+    ? readBrokerSnapshot((refreshedSettings?.preferences || prefs) as Record<string, unknown>, primaryAccount.id)
+    : null;
 
   // Update trades that are missing metrics or have incorrect status
   if (trades && trades.length > 0) {
@@ -110,7 +150,7 @@ export default async function DashboardPage() {
 
   }
 
-  const finalAccountsData = accountsData;
+  const finalAccountsData = reconciledAccounts;
 
   return (
     <AppLayout>
@@ -157,7 +197,7 @@ export default async function DashboardPage() {
             </div>
           </section>
           
-          <DashboardStats trades={tradesData} accounts={finalAccountsData} cashflows={cashflowData} />
+          <DashboardStats trades={tradesData} accounts={finalAccountsData} cashflows={finalCashflowData} brokerStatement={brokerStatement} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <DashboardCharts trades={tradesData} />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+import { applyBalanceDelta } from "@/lib/utils/broker-statement";
 
 interface DeleteTradeButtonProps {
   tradeId: string;
@@ -39,30 +40,11 @@ export function DeleteTradeButton({ tradeId, accountId }: DeleteTradeButtonProps
       return;
     }
 
-    // Update account balance if trade was closed
-    if (trade && trade.status === "closed" && trade.profit_loss !== null) {
-      const { data: account } = await supabase
-        .from("trading_accounts")
-        .select("initial_balance, current_balance")
-        .eq("id", accountId)
-        .single();
-
-      if (account) {
-        // Get all remaining closed trades
-        const { data: allTrades } = await supabase
-          .from("trades")
-          .select("profit_loss")
-          .eq("account_id", accountId)
-          .eq("status", "closed");
-
-        const totalPnL = allTrades?.reduce((sum, t) => sum + (t.profit_loss || 0), 0) || 0;
-        const newBalance = (account.initial_balance || 0) + totalPnL;
-
-        await supabase
-          .from("trading_accounts")
-          .update({ current_balance: newBalance })
-          .eq("id", accountId);
-      }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await applyBalanceDelta(supabase, accountId, user.id, -Number(trade?.profit_loss || 0));
     }
 
     router.push("/trades");

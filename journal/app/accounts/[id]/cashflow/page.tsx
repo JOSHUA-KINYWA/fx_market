@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AppLayout } from "@/components/layout/app-layout";
 import { CashflowForm } from "@/components/accounts/cashflow-form";
 import { AccountLedgerSummary } from "@/components/accounts/account-ledger-summary";
+import { BrokerStatementForm } from "@/components/accounts/broker-statement-form";
+import { readBrokerSnapshot } from "@/lib/utils/broker-statement";
 
 export default async function AccountCashflowPage({
   params,
@@ -32,15 +34,27 @@ export default async function AccountCashflowPage({
 
   const { data: movements } = await supabase
     .from("account_cashflows")
-    .select("id, type, amount, created_at, note, status, reason, currency")
+    .select("id, type, amount, created_at, posted_at, note, status, reason, currency")
     .eq("account_id", id)
     .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .order("posted_at", { ascending: false })
+    .limit(500);
+
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("preferences")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const snapshot = readBrokerSnapshot((settings?.preferences || {}) as Record<string, unknown>, account.id);
 
   return (
     <AppLayout>
       <div className="px-4 py-6 sm:px-0 space-y-6">
+        <BrokerStatementForm
+          accountId={account.id}
+          currency={account.currency}
+          snapshot={snapshot}
+        />
         <AccountLedgerSummary
           accountId={account.id}
           accountName={account.account_name}
@@ -51,7 +65,7 @@ export default async function AccountCashflowPage({
               id: movement.id,
               type: movement.type as "deposit" | "withdrawal",
               amount: Number(movement.amount || 0),
-              created_at: movement.created_at,
+              created_at: movement.posted_at || movement.created_at,
               note: movement.note,
               status: (movement.status || "completed") as "pending" | "completed" | "review",
             }))

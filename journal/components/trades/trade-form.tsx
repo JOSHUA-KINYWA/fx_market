@@ -7,8 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Database } from "@/types/database.types";
 import { TradingPsychologyQuotes } from "./trading-psychology-quotes";
-import { calculateTradeMetrics, updateAccountBalance } from "@/lib/utils/trade-calculations";
+import { calculateTradeMetrics } from "@/lib/utils/trade-calculations";
 import { getFriendlyErrorMessage, validateTradeForm } from "@/lib/utils/trade-form-validation";
+import { applyBalanceDelta } from "@/lib/utils/broker-statement";
 
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 type Strategy = Database["public"]["Tables"]["strategies"]["Row"];
@@ -175,6 +176,12 @@ export function TradeForm({
       };
 
       if (tradeId) {
+        const { data: previous } = await supabase
+          .from("trades")
+          .select("profit_loss, status")
+          .eq("id", tradeId)
+          .single();
+
         const { error } = await supabase
           .from("trades")
           .update(tradeData)
@@ -184,9 +191,10 @@ export function TradeForm({
           throw error;
         }
 
-        if (formData.account_id) {
-          await updateAccountBalance(supabase, formData.account_id);
-        }
+        const oldPnl = Number(previous?.profit_loss || 0);
+        const newPnl = Number(tradeData.profit_loss || 0);
+        await applyBalanceDelta(supabase, formData.account_id, user.id, newPnl - oldPnl);
+
         router.push(`/trades/${tradeId}`);
         router.refresh();
       } else {
@@ -196,9 +204,8 @@ export function TradeForm({
           throw error;
         }
 
-        if (formData.account_id) {
-          await updateAccountBalance(supabase, formData.account_id);
-        }
+        await applyBalanceDelta(supabase, formData.account_id, user.id, Number(tradeData.profit_loss || 0));
+
         router.push("/dashboard");
         setTimeout(() => router.refresh(), 200);
       }

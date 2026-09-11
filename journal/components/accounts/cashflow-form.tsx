@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { applyBalanceDelta } from "@/lib/utils/broker-statement";
 
 interface CashflowAccount {
   id: string;
@@ -49,9 +50,9 @@ export function CashflowForm({ account }: CashflowFormProps) {
 
     const currentBalance = Number(account.current_balance || 0);
     const movementEffect = type === "deposit" ? parsedAmount : -parsedAmount;
-    const updatedBalance = currentBalance + movementEffect;
+    const projectedBalance = currentBalance + movementEffect;
 
-    if (type === "withdrawal" && updatedBalance < 0) {
+    if (type === "withdrawal" && projectedBalance < 0) {
       setError("Profit withdrawal exceeds the available account balance.");
       return;
     }
@@ -79,21 +80,11 @@ export function CashflowForm({ account }: CashflowFormProps) {
         throw ledgerError;
       }
 
-      const balancePayload = {
-        current_balance: Number(updatedBalance.toFixed(2)),
-      };
-
-      const { error: updateError } = await supabase
-        .from("trading_accounts")
-        .update(balancePayload)
-        .eq("id", account.id)
-        .eq("user_id", user.id);
-
-      if (updateError) {
-        throw updateError;
+      if (status === "completed") {
+        await applyBalanceDelta(supabase, account.id, user.id, movementEffect);
       }
 
-      router.push(`/analytics?accountId=${account.id}`);
+      router.push(`/dashboard`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Unable to save cash flow record.");

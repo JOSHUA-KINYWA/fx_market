@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Database } from "@/types/database.types";
+import { tradeIdentityKey } from "@/lib/utils/account-ledger";
 
 type Account = Database["public"]["Tables"]["trading_accounts"]["Row"];
 type Trade = Database["public"]["Tables"]["trades"]["Row"];
@@ -77,33 +78,30 @@ export function DuplicateCleaner({ accounts }: DuplicateCleanerProps) {
         return;
       }
 
-      // Group trades by currency pair
-      const pairs = new Map<string, Trade[]>();
+      const groups = new Map<string, Trade[]>();
       allTrades.forEach((trade: Trade) => {
-        const pair = trade.currency_pair;
-        if (!pairs.has(pair)) {
-          pairs.set(pair, []);
+        const key = tradeIdentityKey(trade);
+        if (!groups.has(key)) {
+          groups.set(key, []);
         }
-        pairs.get(pair)!.push(trade);
+        groups.get(key)!.push(trade);
       });
 
-      // Sort pairs by count (descending)
-      const sortedPairs = Array.from(pairs.entries()).sort((a, b) => b[1].length - a[1].length);
+      const duplicateEntries = Array.from(groups.entries())
+        .filter(([, trades]) => trades.length > 1)
+        .sort((a, b) => b[1].length - a[1].length);
 
-      setPairGroups(new Map(sortedPairs));
+      setPairGroups(new Map(duplicateEntries));
 
-      // Find pairs with more than 1 trade
-      const pairsWithMultiples = sortedPairs.filter(([, trades]) => trades.length > 1);
-
-      if (pairsWithMultiples.length === 0) {
-        setSuccess(`✓ No duplicates found! Scanned ${allTrades.length} trades in this account.`);
+      if (duplicateEntries.length === 0) {
+        setSuccess(`No exact duplicate fills found. Scanned ${allTrades.length} trades. Same-symbol trades on the same day are kept if size, time, or P&L differ.`);
         setShowDuplicates(false);
         setScanning(false);
         return;
       }
 
       setSuccess(
-        `Found ${pairsWithMultiples.length} currency pair${pairsWithMultiples.length !== 1 ? "s" : ""} with multiple trades. Select pairs to clean up.`,
+        `Found ${duplicateEntries.length} exact duplicate fill group${duplicateEntries.length !== 1 ? "s" : ""}. Select groups to keep the oldest copy.`,
       );
       setShowDuplicates(true);
     } catch (err: unknown) {
@@ -283,9 +281,9 @@ export function DuplicateCleaner({ accounts }: DuplicateCleanerProps) {
       ) : (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-900 font-medium">Select pairs to clean up</p>
+            <p className="text-sm text-blue-900 font-medium">Select exact duplicate fills</p>
             <p className="text-xs text-blue-700 mt-1">
-              For each selected pair, all copies except the oldest will be deleted
+              Only identical fills are listed. Multiple XAUUSD or NAS100 trades on the same day are not treated as duplicates.
             </p>
           </div>
 

@@ -14,6 +14,7 @@ interface AccountFormProps {
     account_type: string;
     currency: string;
     initial_balance: string;
+    current_balance?: string;
     is_active: boolean;
   };
 }
@@ -30,6 +31,7 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
     account_type: initialData?.account_type || "demo",
     currency: initialData?.currency || "USD",
     initial_balance: initialData?.initial_balance || "",
+    current_balance: initialData?.current_balance || initialData?.initial_balance || "",
     is_active: initialData?.is_active ?? true,
   });
 
@@ -70,24 +72,20 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
             account_type: accountData.account_type,
             currency: accountData.currency,
             initial_balance: accountData.initial_balance,
+            current_balance: Number.parseFloat(formData.current_balance) || 0,
             is_active: accountData.is_active,
           })
           .eq("id", accountId)
           .eq("user_id", user.id);
 
         if (updateError) throw updateError;
-
-        const { error: balanceError } = await supabase.rpc("update_account_balance", {
-          account_id: accountId,
-        });
-        if (balanceError) console.error("Balance update error:", balanceError);
       } else {
         const { error: insertError } = await supabase
           .from("trading_accounts")
           .insert({
             user_id: user.id,
             ...accountData,
-            current_balance: Number.parseFloat(formData.initial_balance) || 0,
+            current_balance: Number.parseFloat(formData.current_balance) || Number.parseFloat(formData.initial_balance) || 0,
           });
 
         if (insertError) throw insertError;
@@ -203,6 +201,22 @@ export function AccountForm({ accountId, initialData }: AccountFormProps) {
             }
             className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             placeholder="0.00"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700">
+            Current / broker balance
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={formData.current_balance}
+            onChange={(e) =>
+              setFormData({ ...formData, current_balance: e.target.value })
+            }
+            className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            placeholder="104.14"
           />
         </div>
 
