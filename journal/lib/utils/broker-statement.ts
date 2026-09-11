@@ -38,12 +38,18 @@ type LedgerClient = {
   };
 };
 
-function isGeneratedStatementCashflow(item: {
+type CashflowRow = {
+  id?: string;
   type?: string | null;
+  amount?: number | string | null;
+  status?: string | null;
+  posted_at?: string | null;
+  created_at?: string | null;
   note?: string | null;
   reason?: string | null;
-  amount?: number | string | null;
-}): boolean {
+};
+
+function isGeneratedStatementCashflow(item: CashflowRow): boolean {
   const text = `${item.note || ""} ${item.reason || ""}`.toLowerCase();
   if (item.type === "deposit") return true;
   if (text.includes("broker statement")) return true;
@@ -153,10 +159,11 @@ export async function applyBrokerStatement(
     .eq("account_id", accountId)
     .eq("user_id", userId);
 
-  const staleIds = (cashflows || [])
-    .filter((item) => isGeneratedStatementCashflow(item))
-    .map((item) => item.id)
-    .filter(Boolean);
+  const cashflowRows = (cashflows || []) as CashflowRow[];
+  const staleIds = cashflowRows
+    .filter((item: CashflowRow) => isGeneratedStatementCashflow(item))
+    .map((item: CashflowRow) => item.id)
+    .filter((id: string | undefined): id is string => Boolean(id));
 
   if (staleIds.length > 0) {
     const { error: deleteError } = await supabase
@@ -182,8 +189,9 @@ export async function applyBrokerStatement(
     .eq("account_id", accountId)
     .eq("user_id", userId);
 
-  const hasMpesaWithdrawal = (remainingCashflows || []).some(
-    (item) => item.type === "withdrawal" && Math.abs(Number(item.amount || 0) - MPESA_WITHDRAWAL.amount) < 0.009
+  const remainingRows = (remainingCashflows || []) as CashflowRow[];
+  const hasMpesaWithdrawal = remainingRows.some(
+    (item: CashflowRow) => item.type === "withdrawal" && Math.abs(Number(item.amount || 0) - MPESA_WITHDRAWAL.amount) < 0.009
   );
 
   if (snapshot.withdrawals > 0 && !hasMpesaWithdrawal) {
@@ -213,7 +221,7 @@ export async function applyBrokerStatement(
   );
 
   const laterCash = roundMoney(
-    (remainingCashflows || []).reduce((sum: number, item: { type?: string | null; amount?: number | string | null; status?: string | null; posted_at?: string | null; created_at?: string | null }) => {
+    remainingRows.reduce((sum: number, item: CashflowRow) => {
       const when = item.posted_at || item.created_at;
       if (!isAfterStatement(when, snapshot.asOf)) return sum;
       if (item.status && item.status !== "completed") return sum;
